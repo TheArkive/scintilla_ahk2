@@ -2,13 +2,12 @@
 ; ====================================================================
 ; Example
 ; ====================================================================
-g := Gui("+Resize","Scintilla Test")
+g := Gui("+Resize +E0x2000000 0x2000000","Scintilla Test")
 g.OnEvent("Close",gui_close)
 g.OnEvent("Escape",gui_close)
 g.OnEvent("Size",gui_size)
 
 ctl := g.AddScintilla("vMyScintilla w500 h500")
-
 
 ctl.Edge.Mode := 1
 ctl.Edge.Color := 0xABCD00
@@ -17,7 +16,10 @@ ctl.Edge.Column := 50
 ctl.Wrap.Mode := 1
 
 ctl.WhiteSpace.View := 1
+ctl.MouseDwellTime := 1000
 
+setup_scintilla(ctl) ; apply customizations, like theme colors, scroll behavior, etc.
+ctl.callback := ctl_callback
 
 g.Show()
 
@@ -30,15 +32,56 @@ gui_close(*) {
     ExitApp
 }
 
+ctl_callback(ctl, scn) { ; callback for wm_notify messages
+    ; dbg(scn.wmmsg_txt " / text: " scn.text)
+    
+    If (scn.wmmsg_txt = "Modified")
+        dbg("modType: " Scintilla.GetFlags("sc_modType",scn.modType) " / " Format("0x{:X}", scn.modType) " / " scn.text)
+}
+
+setup_scintilla(ctl) {
+    ctl.EndAtLastLine := false ; allow scrolling past last line
+    
+    ctl.Caret.PolicyX(13,50) ; SLOP:=1 | EVEN:=8 | STRICT:=4
+    ctl.Caret.PolicyY(13,50) ; smooth L/R scrolling, keeping cursor 50 px from the edge of the window
+    
+    ctl.Caret.LineVisible := true   ; allow different active line back color
+    ctl.Caret.LineBack := 0x151515  ; active line (with caret)
+    
+    s := ctl.Style ; style 32 is default
+    s.Back := 0x080808 ; global background
+    s.Fore := 0xAAAAAA ; global text color
+    s.Font := "Consolas" ; main text font
+    s.Size := 12
+    s.ClearAll()         ; apply style 32
+    
+    s.ID := 33 ; Style 33, use this for number margin
+    s.Back := 0x202020
+    s.Fore := 0xAAAAAA
+    ctl.Margin.ID := 0      ; number margin
+    ctl.Margin.Sensitive := true
+    ctl.Margin.Style(0,33)  ; set style .Style(line, style)
+    ctl.Margin.Width := 20  ; 20 px number margin
+    
+    ctl.Margin.ID := 1
+    ctl.Margin.Sensitive := true
+    
+    ctl.caret.fore := 0x00FF00 ; change caret color
+    ctl.Selection.BackColor := 0x550000
+    
+    ctl.Tab.Use := false ; use spaces instad of tabs
+    ctl.Tab.Width := 4 ; number of spaces for a tab
+    
+    ctl.Selection.Multi := true
+    ctl.Selection.MultiTyping := true ; type during multi-selection
+    ctl.Selection.RectModifier := 4 ; alt + drag for rect selection
+    ctl.Selection.RectWithMouse := true ; drag + alt also works for rect selection
+}
+
 F2::{
     Global
     
-    m1 := ctl.Margin
-    m1.ID := 0
-    s := ctl.Style
-    s.ID := 33
-    s.Back := 0x550000
-    m1.Style(0,33)
+    ctl.AddUndo(12)
 }
 F3::{
     Global
@@ -51,12 +94,104 @@ F4::{
     ctl.ZoomOut()
 }
 
+dbg(_in) {
+    OutputDebug "AHK: " _in
+}
+
 ; ====================================================================
 ; Scintilla Class
 ; ====================================================================
 class Scintilla extends Gui.Custom {
     Static p := A_PtrSize, u := StrLen(Chr(0xFFFF))
     Static DirectFunc := 0
+    
+    Static wm_notify := {AutoCCancelled:0x7E9
+                       , AutoCCharDeleted:0x7EA
+                       , AutoCCompleted:0x7EE
+                       , AutoCSelection:0x7E6
+                       , AutoCSelectionChange:0x7F0
+                       , CallTipClick:0x7E5
+                       , CharAdded:0x7D1
+                       , DoubleClick:0x7D6
+                       , DwellEnd:0x7E1
+                       , DwellStart:0x7E0
+                       , FocusIn:0x7EC
+                       , FocusOut:0x7ED
+                       , HotSpotClick:0x7E3
+                       , HotSpotDoubleClick:0x7E4
+                       , HotSpotReleaseClick:0x7EB
+                       , IndicatorClick:0x7E7
+                       , IndicatorRelease:0x7E8
+                       , Key:0x7D5
+                       , MacroRecord:0x7D9
+                       , MarginClick:0x7DA
+                       , MarginRightClick:0x7EF
+                       , Modified:0x7D8
+                       , ModifyAtTempTRO:0x7D4
+                       , NeedShown:0x7DB
+                       , Painted:0x7DD
+                       , SavePointLeft:0x7D3
+                       , SavePointReached:0x7D2
+                       , StyleNeeded:0x7D0
+                       , UpdateUI:0x7D7
+                       , UriDropped:0x7DF            ; Change:0x300
+                       , UserListSelection:0x7DE     ; KillFocus:0x100
+                       , Zoom:0x7E2}                 ; SetFocus:0x200
+    
+    ; SCNotification offsets
+    Static scn_id := this.p         ; NMHDR #2              ; ptr
+         , scn_wmmsg := this.p * 2  ; NMHDR #3              ; uint              verified:  13/22 members (not counting NMHDR)
+         , scn_pos := (this.p=4)                ? 12 : 24   ; int Sci_Position  <-- verified offset
+         , scn_ch := (this.p=4)                 ? 16 : 32   ; int               <-- verified offset
+         , scn_mod := (this.p=4)                ? 20 : 36   ; int               <-- verified offset
+         , scn_modType := (this.p=4)            ? 24 : 40   ; int               <-- verified offset
+         , scn_text := (this.p=4)               ? 28 : 48   ; ptr               <-- verified offset
+         , scn_length := (this.p=4)             ? 32 : 56   ; int Sci_Position  <-- verified offset
+         , scn_linesAdded := (this.p=4)         ? 36 : 64   ; int Sci_Position  <-- verified offset
+         , scn_message := (this.p=4)            ? 40 : 72   ; int
+         , scn_wParam := (this.p=4)             ? 44 : 80   ; ptr
+         , scn_lParam := (this.p=4)             ? 48 : 88   ; sptr (signed)
+         , scn_line := (this.p=4)               ? 52 : 96   ; int Sci_Position  <-- verified offset
+         , scn_foldLevelNow := (this.p=4)       ? 56 : 104  ; int                   need folding to verify
+         , scn_foldLevelPrev := (this.p=4)      ? 60 : 108  ; int                   need folding to verify
+         , scn_margin := (this.p=4)             ? 64 : 112  ; int               <-- verified offset
+         , scn_listType := (this.p=4)           ? 68 : 116  ; int                   need user list or auto-complete to verify
+         , scn_x := (this.p=4)                  ? 72 : 120  ; int               <-- verified offset
+         , scn_y := (this.p=4)                  ? 76 : 124  ; int               <-- verified offset
+         , scn_token := (this.p=4)              ? 80 : 128  ; int               <-- verified offset
+         , scn_annotationLinesAdded:=(this.p=4) ? 84 : 136  ; int Sci_Position      need to use annotations to verify
+         , scn_updated := (this.p=4)            ? 88 : 144  ; int               <-- verified offset
+         , scn_listCompletionMethod:=(this.p=4) ? 92 : 148  ; int                   need user list or auto-complete to verify
+         , scn_characterSource := (this.p=4)    ? 96 : 152  ; int                   need IME input to verify this
+    
+    Static sc_mod := {Ctrl:2, Alt:4, Shift:1, Meta:16, Super:8}
+    
+    Static sc_updated := {Content:0x1, Selection:2, VScroll:4, HScroll:8}
+    
+    Static sc_modType := {None:0                    ; SCN members affected below...
+                        , InsertText:0x1            ; pos, length, text, linesAdded
+                        , DeleteText:0x2            ; pos, length, text, linesAdded
+                        , ChangeStyle:0x4           ; pos, length
+                        , ChangeFold:0x8            ; line, foldLevelNow, foldLevelPrev
+                        , User:0x10                 ; 
+                        , Undo:0x20                 ; 
+                        , Redo:0x40                 ; 
+                        , MultiStepUndoRedo:0x80    ; 
+                        , LastStepInUndoRedo:0x100  ; 
+                        , ChangeMarker:0x200        ; line
+                        , BeforeInsert:0x400        ; pos, if user, text in bytes, length in bytes
+                        , BeforeDelete:0x800        ; position, length
+                        , ChangeIndicator:0x4000    ; position, length
+                        , ChangeLineState:0x8000    ; line
+                        , ChangeTabStops:0x200000   ; line
+                        , LexerState:0x80000        ; position, length
+                        , ChangeMargin:0x10000      ; line
+                        , ChangeAnnotation:0x20000  ; line
+                        , InsertCheck:0x100000      ; position, length, text
+                        , MultiLineUndoRedo:0x1000  ; 
+                        , StartAction:0x2000        ; 
+                        , Container:0x40000}        ; token
+                        ; , EventMaskAll:0x1FFFFF}    ; 
     
     Static charset := {8859_15:0x3E8,ANSI:0x0,ARABIC:0xB2,BALTIC:0xBA,CHINESEBIG5:0x88,CYRILLIC:0x4E3,DEFAULT:0x1
                       ,EASTEUROPE:0xEE,GB2312:0x86,GREEK:0xA1,HANGUL:0x81,HEBREW:0xB1,JOHAB:0x82,MAC:0x4D,OEM:0xFF
@@ -70,9 +205,8 @@ class Scintilla extends Gui.Custom {
         Gui.prototype.AddScintilla := ObjBindMethod(this,"AddScintilla")    ; Multiple gui subclass extensions don't play well together.
         
         scint_path := "Scintilla.dll" ; Set this as needed.
-        If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path))     ; load dll, make sure it works
-            Msgbox "Library not found:`r`n`r`n`tScintilla.dll`r`n`r`n"
-                 . "Modify the path to the appropriate location for your script."
+        If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path))    ; load dll, make sure it works
+            throw Error("Scintilla DLL not found.",,"Modify the path to the appropriate location for your script.")
         
         For prop in Scintilla.scint_base.prototype.OwnProps() ; attach utility methods to instance
             If !(SubStr(prop,1,2) = "__") And (SubStr(prop,1,1) = "_")
@@ -86,13 +220,17 @@ class Scintilla extends Gui.Custom {
         ctl := _gui.Add("Custom","ClassScintilla " sOptions)
         ctl.base := Scintilla.Prototype ; attach methods (but not static ones)
         
-        ctl.LastCode := 0       ; like LastError, captures the return codes of messages sent, if any
+        ctl.msg_cb := ObjBindMethod(ctl, "wm_messages") ; Register wm_notify messages
+        OnMessage(0x4E, ctl.msg_cb)
+        
+        ctl.callback := ""      ; setting some main properties
+        ctl._UsePopup := true
         ctl._UseDirect := false ; set some defaults...
         ctl._DirectPtr := 0
-        ctl._UsePopup := 1
+        ctl.LastCode := 0       ; like LastError, captures the return codes of messages sent, if any
         
         ; =============================================
-        ; attach main objects to control Scintilla
+        ; attach main objects to Scintilla control
         ; =============================================
         ; Annotations
         ; AutoComplete and "Element Colors"
@@ -108,7 +246,7 @@ class Scintilla extends Gui.Custom {
         ; Indicators (underline and such)
         ; KeyBindings
         ; Keyboard Commands
-        ctl.LineEnd := Scintilla.LineEnd(ctl)
+        ctl.LineEndings := Scintilla.LineEndings(ctl)
         ctl.Macro := Scintilla.Macro(ctl)
         ctl.Margin := Scintilla.Margin(ctl)
         ; Markers
@@ -126,46 +264,57 @@ class Scintilla extends Gui.Custom {
         
         ; =============================================
         ; custom settings for control here
+        ; these 2 settings are recommended for modern systems
         ; =============================================
         ctl.BufferedDraw := 0   ; disable buffering for Direct2D
-        ctl.SetTechnology := 1  ; use Direct2D
-        ; =============================================
-        ; these 2 above are highly recommended for performance
-        ; =============================================
-        ctl.EndAtLastLine := false ; allow scrolling past last line
-        
-        ctl.Caret.PolicyX(13,50) ; SLOP:=1 | EVEN:=8 | STRICT:=4
-        ctl.Caret.PolicyY(13,50) ; smooth L/R scrolling, keeping cursor 50 px from the edge of the window
-        
-        ctl.Caret.LineVisible := true   ; allow different active line back color
-        ctl.Caret.LineBack := 0x151515  ; active line (with caret)
-        ; =============================================
-        s := ctl.Style ; style 32 is default
-        s.Back := 0x080808 ; global background
-        s.Fore := 0xAAAAAA ; global text color
-        s.Font := "Consolas" ; main text font
-        s.Size := 12
-        s.ClearAll()         ; apply style 32
-        ; =============================================
-        s.ID := 33 ; Style 33, use this for number margin
-        s.Back := 0x202020
-        s.Fore := 0xAAAAAA
-        ctl.Margin.ID := 0      ; number margin
-        ctl.Margin.Style(0,33)  ; set style .Style(line, style)
-        ctl.Margin.Width := 20  ; 20 px number margin
-        ; =============================================
-        ctl.caret.fore := 0x00FF00 ; change caret color
-        ctl.Selection.BackColor := 0x550000
-        ; =============================================
-        ctl.Tab.Use := false ; use spaces instad of tabs
-        ctl.Tab.Width := 4 ; number of spaces for a tab
-        
-        ctl.Selection.Multi := true
-        ctl.Selection.MultiTyping := true ; type during multi-selection
-        ctl.Selection.RectModifier := 4 ; alt + drag for rect selection
-        ctl.Selection.RectWithMouse := true ; drag + alt also works for rect selection
-        ; =============================================
+        ctl.SetTechnology := 2  ; use Direct2D
+
         return ctl
+    }
+    Static Lookup(member, in_value) {
+        For prop, value in this.%member%.OwnProps()
+            If (value = in_value)
+                return prop
+        return ""
+    }
+    Static GetFlags(member, in_value, all:=false) {
+        out_str := ""
+        For prop, value in Scintilla.%member%.OwnProps()
+            If (value & in_value)
+                out_str .= (out_str?" ":"") prop
+        return out_str
+    }
+    
+    wm_messages(wParam, lParam, msg, hwnd) {
+        scn := Scintilla.SCNotification(lParam)
+        scn.wmmsg_txt := Scintilla.Lookup("wm_notify", (msg_num := scn.wmmsg))
+        
+        ; ==================================================================
+        ; several examples here to test SCNotification members in a debugger
+        ; ==================================================================
+        ; If scn.wmmsg_txt = "Modified"
+            ; dbg("modType: " Scintilla.GetFlags("sc_modType",scn.modType) " / " Format("0x{:X}", scn.modType))
+        
+        ; If scn.wmmsg_txt = "Modified" {
+            ; txt := StrGet(scn.text, "UTF-8")
+            ; dbg("text: " txt " / line: " scn.line)
+            
+            ; dbg("linesAdded: " scn.linesAdded)
+            
+            ; If scn.token
+                ; dbg("token: " scn.token)
+        ; }
+        
+        ; If (scn.wmmsg_txt = "CharAdded")
+            ; dbg(scn.wmmsg_txt ": ch: " scn.ch " / src: " scn.characterSource)
+        
+        ; If InStr(scn.wmmsg_txt, "Update")
+            ; dbg(scn.wmmsg_txt ": " Scintilla.GetFlags("sc_updated", scn.updated) " / " scn.updated)
+        
+        If scn.wmmsg_txt And this.callback {
+            f := this.callback 
+            f(this, scn) ; params --> this = ctl // scn = SCNotificaion struct
+        }
     }
     
     ; =========================================================================================
@@ -191,25 +340,33 @@ class Scintilla extends Gui.Custom {
     ; SCI_POSITIONAFTER
     ; =========================================================================================
     ; =========================================================================================
-    Accessibility { ; int 0 = disabled, 1 = enabled
+    Accessibility {                     ; int 0 = disabled, 1 = enabled
         get => this._sms(0xA8F)         ; SCI_GETACCESSIBILITY
         set => this._sms(0xA8E, value)  ; SCI_SETACCESSIBILITY
     }
-    BiDirectional { ; int 0 = disabled, 1 = Left-to-Right, 2 = Right-to-Left
+    AppendText(pos:="", text:="") {     ; caret is moved, screen not scrolled
+        pos := pos?pos:this.CurPos
+        return this._PutStr(0x8EA, pos, text) ; SCI_APPENDTEXT
+    }
+    BiDirectional {                     ; int 0 = disabled, 1 = Left-to-Right, 2 = Right-to-Left
         get => this._sms(0xA94)         ; SCI_GETBIDIRECTIONAL
         set => this._sms(0xA95, value)  ; SCI_SETBIDIRECTIONAL
     }
-    BufferedDraw { ; boolean (true = default)
+    BufferedDraw {                      ; boolean (true = default)
         get => this._sms(0x7F2)         ; SCI_GETBUFFEREDDRAW
         set => this._sms(0x7F3, value)  ; SCI_SETBUFFEREDDRAW
     }
-    CodePage { ; default = 65001
+    CodePage {                          ; default = 65001
         get => this._sms(0x859)         ; SCI_GETCODEPAGE
         set => this._sms(0x7F5, value)  ; SCI_SETCODEPAGE
     }
     Column(pos:="") {
         pos := pos?pos:this.CurPos      ; defaults to getting column at current caret pos
         return this._sms(0x851, pos)    ; SCI_GETCOLUMN
+    }
+    CommandEvents {                     ; boolean
+        get => this._sms(0xA9E)         ; SCI_GETCOMMANDEVENTS
+        set => this._sms(0xA9D, value)  ; SCI_SETCOMMANDEVENTS
     }
     CurLine {
         get => this.LineFromPos(this.CurPos)
@@ -218,21 +375,25 @@ class Scintilla extends Gui.Custom {
         get => this._sms(0x7D8)         ; SCI_GETCURRENTPOS
         set => this._sms(0x7E9, value)  ; SCI_GOTOPOS (selects destroyed, cursor scrolled)
     }
-    Cursor { ; int -1 = normal mouse cursor, 7 = wait mouse cursor (1-7 can be used?)
+    Cursor {                            ; int -1 = normal mouse cursor, 7 = wait mouse cursor (1-7 can be used?)
         get => this._sms(0x953)         ; SCI_GETCURSOR
         set => this._sms(0x952, value)  ; SCI_SETCURSOR
     }
     DeleteRange(start, end) {
         return this._sms(0xA55, start, end) ; SCI_DELETERANGE
     }
-    EndAtLastLine { ; boolean -> true = don't scroll past last line (default), false = you can
+    EndAtLastLine {                     ; boolean -> true = don't scroll past last line (default), false = you can
         get => this._sms(0x8E6)         ; SCI_GETENDATLASTLINE
         set => this._sms(0x8E5, value)  ; SCI_SETENDATLASTLINE
+    }
+    EventMask {                         ; int event mask - scn.modType (modificationType)
+        get => this._sms(0x94A)         ; SCI_GETMODEVENTMASK
+        set => this._sms(0x937, value)  ; SCI_SETMODEVENTMASK
     }
     FindColumn(line, pos) {
         return this._sms(0x998, line, pos)  ; SCI_FINDCOLUMN
     }
-    FontQuality { ; int 0 = Default, 1 = non-anti-aliased, 2 = anti-aliased, 3 = LCD optimized
+    FontQuality {                       ; int 0 = Default, 1 = non-anti-aliased, 2 = anti-aliased, 3 = LCD optimized
         get => this._sms(0xA34)         ; SCI_GETFONTQUALITY
         set => this._sms(0xA33, value)  ; SCI_SETFONTQUALITY
     }
@@ -247,20 +408,20 @@ class Scintilla extends Gui.Custom {
         tr := Scintilla.TextRange()
         tr.cpMin := start
         tr.cpMax := end
-        this._sms(0x872, 0, tr.ptr) ; SCI_GETTEXTRANGE
+        this._sms(0x872, 0, tr.ptr)     ; SCI_GETTEXTRANGE
         return StrGet(tr.buf, "UTF-8")
     }
     GetStyle(pos:="") {
         pos := pos?pos:this.CurPos
         return this._sms(0x7DA, pos)    ; SCI_GETSTYLEAT
     }
+    Identifier {                        ; int ID for the control in SCNotifications
+        get => this._sms(0xA3F)         ; SCI_GETIDENTIFIER
+        set => this._sms(0xA3E, value)  ; SCI_SETIDENTIFIER
+    }
     IME_Interaction {                   ; 0 = windowed, 1 = inline
         get => this._sms(0xA76)         ; SCI_GETIMEINTERACTION
         set => this._sms(0xA77, value)  ; SCI_SETIMEINTERACTION
-    }
-    AppendText(pos:="", text:="") {     ; caret is moved, screen not scrolled
-        pos := pos?pos:this.CurPos
-        return this._PutStr(0x8EA, pos, text) ; SCI_APPENDTEXT
     }
     InsertText(pos:=-1, text:="") {     ; caret is moved, screen not scrolled
         return this._PutStr(0x7D3, pos, text) ; SCI_INSERTTEXT
@@ -282,11 +443,11 @@ class Scintilla extends Gui.Custom {
     LineFromPos(pos) {
         return this._sms(0x876, pos)    ; SCI_LINEFROMPOSITION
     }
-    LinesJoin() { ; determined by target?
-        ; SCI_LINESJOIN
+    LinesJoin() {                       ; target is assumed to be user selection
+        return this._sms(0x8F0)         ; SCI_LINESJOIN
     }
-    LinesSplit(pixels) { ; determined by target?
-        ; SCI_LINESSPLIT
+    LinesSplit(pixels) {                ; target is assumed to be user selection
+        return this._sms(0x8F1, pixels) ; SCI_LINESSPLIT
     }
     LinesOnScreen {
         get => this._sms(0x942)         ; SCI_LINESONSCREEN
@@ -296,6 +457,10 @@ class Scintilla extends Gui.Custom {
         start := this.PosFromLine(line)
         end := this.LineEndPos(line)
         return this.GetTextRange(start, end)
+    }
+    MouseDwellTime {                    ; int milliseconds / default = 0
+        get => this._sms(0x8D9)         ; SCI_GETMOUSEDWELLTIME
+        set => this._sms(0x8D8, value)  ; SCI_SETMOUSEDWELLTIME
     }
     Modified {
         get => this._sms(0x86F)         ; SCI_GETMODIFY
@@ -312,7 +477,7 @@ class Scintilla extends Gui.Custom {
         get => this._sms(0x88B)         ; SCI_GETOVERTYPE
         set => this._sms(0x88A, value)  ; SCI_SETOVERTYPE
     }
-    PhaseDraw { ; int 1 = two_phases (default), 2 = multiple_phases
+    PhaseDraw {                         ; int 1 = two_phases (default), 2 = multiple_phases
         get => this._sms(0x8EB)         ; SCI_GETTWOPHASEDRAW
         set => this._sms(0x8EC, value)  ; SCI_SETTWOPHASEDRAW
     }
@@ -336,11 +501,11 @@ class Scintilla extends Gui.Custom {
         get => this._sms(0x85C)         ; SCI_GETREADONLY
         set => this._sms(0x87B, value)  ; SCI_SETREADONLY
     }
-    ScrollH { ; boolean / show hide Horizontal scroll bar
+    ScrollH {                           ; boolean / show hide Horizontal scroll bar
         get => this._sms(0x853)         ; SCI_GETHSCROLLBAR
         set => this._sms(0x852, value)  ; SCI_SETHSCROLLBAR
     }
-    ScrollV { ; boolean / show hide vertical scroll bar
+    ScrollV {                           ; boolean / show hide vertical scroll bar
         get => this._sms(0x8E9)         ; SCI_GETVSCROLLBAR
         set => this._sms(0x8E8, value)  ; SCI_GETVSCROLLBAR
     }
@@ -348,11 +513,11 @@ class Scintilla extends Gui.Custom {
         get => this._sms(0x8E3)         ; SCI_GETSCROLLWIDTH
         set => this._sms(0x8E2, value)  ; SCI_SETSCROLLWIDTH
     }
-    ScrollWidthTracking { ; boolean - in case non-wrap text extends beyond 2000 chars (default = false)
+    ScrollWidthTracking {               ; boolean - in case non-wrap text extends beyond 2000 chars (default = false)
         get => this._sms(0x9D5)         ; SCI_GETSCROLLWIDTHTRACKING
         set => this._sms(0x9D4, value)  ; SCI_SETSCROLLWIDTHTRACKING
     }
-    SetTechnology { ; int 0 = GDI (default), 1 = DirectWrite (Direct2D), 2 = DirectWriteRetain
+    SetTechnology {                     ; int 0 = GDI (default), 1 = DirectWrite (Direct2D), 2 = DirectWriteRetain
         get => this._sms(0xA47)         ; SCI_GETTECHNOLOGY
         set => this._sms(0xA46, value)  ; SCI_SETTECHNOLOGY
     }
@@ -363,11 +528,11 @@ class Scintilla extends Gui.Custom {
     SupportsFeature(n) {                ; SCI_SUPPORTSFEATURE
         return this._sms(0xABE, n)      ; 0 = LINE_DRAWS_FINAL, 1 = PIXEL_DIVISIONS, 2 = FRACTIONAL_STROKE_WIDTH
     }                                   ; 3 = TRANSLUCENT_STROKE, 4 = PIXEL_MODIFICATION
+    
     UsePopup { ; int 0 = off, 1 = default, 2 = only on text area
         get => this._UsePopup
-        set => this._sms(0x943, value)  ; SCI_USEPOPUP
+        set => this._sms(0x943, (this._UsePopup := value))  ; SCI_USEPOPUP
     }
-    
     
     ; =========================================================================================
     ; =========================================================================================
@@ -375,13 +540,13 @@ class Scintilla extends Gui.Custom {
     ClearAll() {
         return this._sms(0x7D4)         ; SCI_CLEARALL
     }
-    Focus() { ; GrabFocus(0x960) ... or ... SetFocus(0x94C, bool)
+    Focus() {                           ; GrabFocus(0x960) ... or ... SetFocus(0x94C, bool)
         this._sms(0x960)                ; SCI_GRABFOCUS
     }
     SelectAll() {
         return this._sms(0x7DD)         ; SCI_SELECTALL
     }
-    Zoom { ; int points (some measure of "zoom factor" for ZoomIN/OUT commands, default = 0
+    Zoom {                              ; int points (some measure of "zoom factor" for ZoomIN/OUT commands, default = 0
         get => this._sms(0x946)         ; SCI_GETZOOM
         set => this._sms(0x945, value)  ; SCI_SETZOOM
     }
@@ -418,9 +583,9 @@ class Scintilla extends Gui.Custom {
     EndUndo() {
         return this._sms(0x81F) ; SCI_ENDUNDOACTION
     }
-    AddUndo(token, flags) {                     ; token is sent in SCN_MODIFIED notification
+    AddUndo(token, flags:=1) {                  ; token is sent in SCN_MODIFIED notification
         return this._sms(0xA00, token, flags)   ; SCI_ADDUNDOACTION
-    }
+    }                                           ; flags: 1=COALESCE, 0=NONE
     ; =========================================================================================
     ; =========================================================================================
     
@@ -612,7 +777,7 @@ class Scintilla extends Gui.Custom {
         }
     }
     
-    class LineEnd extends Scintilla.scint_base {
+    class LineEndings extends Scintilla.scint_base {
         Convert(mode) {                     ; mode -> 0 = CRLF, 1 = CR, 2 = LF
             return this._sms(0x7ED, mode)   ; SCI_CONVERTEOLS
         }
@@ -1264,8 +1429,12 @@ class Scintilla extends Gui.Custom {
     }
     
     class CharRange {
-        __New(_super) {
-            this.struct := BufferAlloc(8,0)
+        __New(_super, ptr := 0) {
+            If !ptr {
+                this.struct := BufferAlloc(8,0)
+                this.ptr := this.struct.ptr
+            } Else
+                this.ptr := ptr
         }
         cpMin {
             get => NumGet(this.struct, 0, "UInt")
@@ -1281,8 +1450,12 @@ class Scintilla extends Gui.Custom {
     }
     
     class TextRange {
-        __New(_super) {
-            this.struct := BufferAlloc((A_PtrSize=4)?12:16, 0)
+        __New(_super, ptr:=0) {
+            If !ptr {
+                this.struct := BufferAlloc((A_PtrSize=4)?12:16, 0)
+                this.ptr := this.struct.ptr
+            } Else
+                this.ptr := ptr
         }
         _SetBuffer() {
             If (this.cpMax) {
@@ -1315,4 +1488,191 @@ class Scintilla extends Gui.Custom {
             get => this.struct.ptr
         }
     }
+    
+    class SCNotification { ; SCNotification
+        __New(_super, ptr := 0) {
+            this.ptr := ptr
+        }
+        hwnd {
+            get => NumGet(this.ptr, 0, "UPtr")
+        }
+        id {
+            get => NumGet(this.ptr, Scintilla.scn_id, "UPtr")
+        }
+        wmmsg {
+            get => NumGet(this.ptr, Scintilla.scn_wmmsg, "UInt")
+        }
+        pos {
+            get => NumGet(this.ptr, Scintilla.scn_pos, "Int")
+        }
+        ch {
+            get => NumGet(this.ptr, Scintilla.scn_ch, "Int")
+        }
+        mod {
+            get => NumGet(this.ptr, Scintilla.scn_mod, "Int")
+        }
+        modType {
+            get => NumGet(this.ptr, Scintilla.scn_modType, "Int")
+        }
+        text {
+            get {
+                If (ptr := NumGet(this.ptr, Scintilla.scn_text, "UPtr")) ; Specifying length helps as described below:
+                    return StrGet(ptr, this.length, "UTF-8") ; For some reason the following event adds "r" at the end of paste:
+                Else                            ; SCN_MODIFIED modType: InsertText StartAction User / modType: 0x2011 / asdfr
+                    return ""                   ; ?? only "asdf" was pasted...
+            }
+        }
+        length {
+            get => NumGet(this.ptr, Scintilla.scn_length, "Int")
+        }
+        linesAdded {
+            get => NumGet(this.ptr, Scintilla.scn_linesAdded, "Int")
+        }
+        message {
+            get => NumGet(this.ptr, Scintilla.scn_message, "Int")
+        }
+        wParam {
+            get => NumGet(this.ptr, Scintilla.scn_wParam, "UPtr")
+        }
+        lParam {
+            get => NumGet(this.ptr, Scintilla.scn_lParam, "Ptr")
+        }
+        line {
+            get => NumGet(this.ptr, Scintilla.scn_line, "Int")
+        }
+        foldLevelNow {
+            get => NumGet(this.ptr, Scintilla.scn_foldLevelNow, "Int")
+        }
+        foldLevelPrev {
+            get => NumGet(this.ptr, Scintilla.scn_foldLevelPrev, "Int")
+        }
+        margin {
+            get => NumGet(this.ptr, Scintilla.scn_margin, "Int")
+        }
+        listType {
+            get => NumGet(this.ptr, Scintilla.scn_listType, "Int")
+        }
+        x {
+            get => NumGet(this.ptr, Scintilla.scn_x, "Int")
+        }
+        y {
+            get => NumGet(this.ptr, Scintilla.scn_y, "Int")
+        }
+        token {
+            get => NumGet(this.ptr, Scintilla.scn_token, "Int")
+        }
+        annotationLinesAdded {
+            get => NumGet(this.ptr, Scintilla.scn_annotationLinesAdded, "Int")
+        }
+        updated {
+            get => NumGet(this.ptr, Scintilla.scn_updated, "Int")
+        }
+        listCompletionMethod {
+            get => NumGet(this.ptr, Scintilla.scn_listCompletionMethod, "Int")
+        }
+        characterSource {
+            get => NumGet(this.ptr, Scintilla.scn_characterSource, "Int")
+        }
+    }
 }
+
+; =================================================================================
+; Newer Scintilla offsets, where Sci_Position is 8 bytes
+; =================================================================================
+; struct SCNotification {                 offset         size
+    ; struct Sci_NotifyHeader nmhdr;     |0              12/24
+    ; Sci_Position position;             |12/24          16/32
+    ; int ch;                            |16/32          20/36
+    ; int modifiers;                     |20/36          24/40
+    ; int modificationType;              |24/40          28/44
+    ; const char *text;                  |28/48 <------- 32/56 --- x64 offset    
+    ; Sci_Position length;               |32/56          36/64
+    ; Sci_Position linesAdded;           |36/64          40/72
+    ; int message;                       |40/72          44/76
+    ; uptr_t wParam;                     |44/80 <------- 48/88 --- x64 offset    
+    ; sptr_t lParam;                     |48/88          52/96
+    ; Sci_Position line;                 |52/96          56/104
+    ; int foldLevelNow;                  |56/104         60/108
+    ; int foldLevelPrev;                 |60/108         64/112
+    ; int margin;                        |64/112         68/116
+    ; int listType;                      |68/116         72/120
+    ; int x;                             |72/120         76/124
+    ; int y;                             |76/124         80/128
+    ; int token;                         |80/128         84/132
+    ; Sci_Position annotationLinesAdded; |84/136 <------ 88/144 --- x64 offset
+    ; int updated;                       |88/144         92/148
+    ; int listCompletionMethod;          |92/148         96/152
+    ; int characterSource;               |96/152         100/156 (x64 size = 160)
+; };
+
+
+
+; =================================================================================
+; Older Scintilla offsets, where Sci_Position is 4 bytes
+; =================================================================================
+; struct SCNotification {              offset         size
+    ; struct Sci_NotifyHeader nmhdr;  |0              12/24
+    ; Sci_Position position;          |12/24          16/28
+
+    ; int ch;                         |16/28          20/32
+    ; int modifiers;                  |20/32          24/36
+
+    ; int modificationType;           |24/36          28/40
+    ; const char *text;               |28/40          32/48
+
+    ; Sci_Position length;            |32/48          36/52
+    ; Sci_Position linesAdded;        |36/52          40/56
+    ; int message;                    |40/56          44/60
+    ; uptr_t wParam;                  |44/64          48/72 <--- x64 offset
+    ; sptr_t lParam;                  |48/72          52/80
+    ; Sci_Position line;              |52/80          56/84
+    ; int foldLevelNow;               |56/84          60/88
+    ; int foldLevelPrev;              |60/88          64/92
+    ; int margin;                     |64/92          68/96
+    ; int listType;                   |68/96          72/100
+    ; int x;                          |72/100         76/104
+    ; int y;                          |76/104         80/108
+    ; int token;                      |80/108         84/112
+    ; int annotationLinesAdded;       |84/112         88/116
+    ; int updated;                    |88/116         92/120
+    ; int listCompletionMethod;       |92/120         96/124
+    
+    ; int characterSource;            |96/124         100/128
+; };
+
+; struct SCNotification {
+ ; Sci_NotifyHeader nmhdr;
+ ; Sci_Position position;
+ ; /* SCN_STYLENEEDED, SCN_DOUBLECLICK, SCN_MODIFIED, SCN_MARGINCLICK, */
+ ; /* SCN_NEEDSHOWN, SCN_DWELLSTART, SCN_DWELLEND, SCN_CALLTIPCLICK, */
+ ; /* SCN_HOTSPOTCLICK, SCN_HOTSPOTDOUBLECLICK, SCN_HOTSPOTRELEASECLICK, */
+ ; /* SCN_INDICATORCLICK, SCN_INDICATORRELEASE, */
+ ; /* SCN_USERLISTSELECTION, SCN_AUTOCSELECTION */
+ ; int ch;
+ ; /* SCN_CHARADDED, SCN_KEY, SCN_AUTOCCOMPLETED, SCN_AUTOCSELECTION, */
+ ; /* SCN_USERLISTSELECTION */
+ ; int modifiers;
+ ; /* SCN_KEY, SCN_DOUBLECLICK, SCN_HOTSPOTCLICK, SCN_HOTSPOTDOUBLECLICK, */
+ ; /* SCN_HOTSPOTRELEASECLICK, SCN_INDICATORCLICK, SCN_INDICATORRELEASE, */
+ ; int modificationType; /* SCN_MODIFIED */
+ ; const char *text;
+ ; /* SCN_MODIFIED, SCN_USERLISTSELECTION, SCN_AUTOCSELECTION, SCN_URIDROPPED */
+ ; Sci_Position length;  /* SCN_MODIFIED */
+ ; Sci_Position linesAdded; /* SCN_MODIFIED */
+ ; int message; /* SCN_MACRORECORD */
+ ; uptr_t wParam; /* SCN_MACRORECORD */
+ ; sptr_t lParam; /* SCN_MACRORECORD */
+ ; Sci_Position line;  /* SCN_MODIFIED */
+ ; int foldLevelNow; /* SCN_MODIFIED */
+ ; int foldLevelPrev; /* SCN_MODIFIED */
+ ; int margin;  /* SCN_MARGINCLICK */
+ ; int listType; /* SCN_USERLISTSELECTION */
+ ; int x;   /* SCN_DWELLSTART, SCN_DWELLEND */
+ ; int y;  /* SCN_DWELLSTART, SCN_DWELLEND */
+ ; int token;  /* SCN_MODIFIED with SC_MOD_CONTAINER */
+ ; Sci_Position annotationLinesAdded; /* SCN_MODIFIED with SC_MOD_CHANGEANNOTATION */
+ ; int updated; /* SCN_UPDATEUI */
+ ; int listCompletionMethod;
+ ; /* SCN_AUTOCSELECTION, SCN_AUTOCCOMPLETED, SCN_USERLISTSELECTION, */
+ ; int characterSource; /* SCN_CHARADDED */
+; };
