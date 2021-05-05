@@ -21,122 +21,57 @@ Here are a few general guidelines:
 * I tried to keep all like categories of methods and properties together as they are listed on the Scintilla Documentation site, but this is not always the case.  Generally I'm just trying to keep concepts in logical categories (sub classes).  This is a bit of a process as I discover other functions, some of which serve a better purpose in a different category than originally listed in the Scintilla Docs.
 * Not all Scintilla functions will make it into this library.  Basically, functions that appear to duplicate another function's result with little or no benefit won't be added, unless there is a good reason, in which case it may get a different name to more appropriately describe what it is best used for.
 
-## Basic Properties and Methods
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
+# Current Changes
 
-... in progress ...
+Lots of additions
+* added .wm_messages() callback per control created (attached to the Gui control obj)
+* added SCNotification struct as a sub-class
+* added callback property to Gui control object ... [ callback(ctl, scn) ]
+* added several static objs for listing constants
+* updated and tested offsets for SCNotification struct (13/22 offsets verified for x86 and x64)
+* added a few more SCI_\* funcs
+* moved some Scintilla control customizations out of main class into a func in the example
+* Added .Lookup() and .GetFlags() static methods for easier interal workings
 
-</details>
+WM_NOTIFY callback
 
-## Brace sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
+```
+g := Gui()
+ctl := g.AddScintilla(...)
+ctl.callabck my_func
 
-... in progress ...
+my_func(ctl, scn) {
+    ...
+}
+```
 
-</details>
+`ctl` is the Gui Control object, the Scintilla control.
+`scn` is the SCNotification struct as a sub-class.
 
-## Caret sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
+Members:
 
-... in progress ...
-
-</details>
-
-## Edge sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Hotspot sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## LineEndings sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Macro sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Margin sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Selection sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Style sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Styling sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Tab sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## WhiteSpace sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Words sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
-
-## Wrap sub-class
-<details>
-<summary style="font-size:9">Click here to toggle</summary>
-
-... in progress ...
-
-</details>
+hwnd
+id
+wmmsg
+wmmsg_txt <-- added text name of wm_notify msg
+pos
+ch
+mod
+modType
+text
+length
+linesAdded
+message
+wParam
+lParam
+line
+foldLevelNow
+foldLevelPrev
+margin
+listType
+x
+y
+annotationLinesAdded
+updated
+listCompletionMethod
+characterSource
