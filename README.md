@@ -75,3 +75,13 @@ annotationLinesAdded\
 updated\
 listCompletionMethod\
 characterSource
+
+## Margins and Styles
+
+For margins and styles, set the active "ID" like so:
+
+```
+obj.Style.ID := 34 ; make future calls to obj.Style.* apply to style #34
+
+obj.Margin.ID := 2 ; make future calls to obj.Margin.* apply to margin #2
+```
