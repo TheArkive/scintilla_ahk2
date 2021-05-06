@@ -38,7 +38,7 @@ WM_NOTIFY callback
 ```
 g := Gui()
 ctl := g.AddScintilla(...)
-ctl.callabck my_func
+ctl.callabck := my_func
 
 my_func(ctl, scn) {
     ...
