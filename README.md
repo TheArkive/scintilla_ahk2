@@ -26,7 +26,7 @@ Here are a few general guidelines:
 Lots of additions
 * added .wm_messages() callback per control created (attached to the Gui control obj)
 * added SCNotification struct as a sub-class
-* added callback property to Gui control object ... [ callback(ctl, scn) ]
+* added callback property to Gui control object ... `callback(ctl, scn)`
 * added several static objs for listing constants
 * updated and tested offsets for SCNotification struct (13/22 offsets verified for x86 and x64)
 * added a few more SCI_\* funcs
@@ -50,28 +50,28 @@ my_func(ctl, scn) {
 
 Members:
 
-hwnd
-id
-wmmsg
-wmmsg_txt <-- added text name of wm_notify msg
-pos
-ch
-mod
+hwnd\
+id\
+wmmsg\
+wmmsg_txt <-- added text name of wm_notify msg\
+pos\
+ch\
+mod\
 modType
-text
-length
+text\
+length\
 linesAdded
-message
-wParam
-lParam
-line
-foldLevelNow
-foldLevelPrev
-margin
-listType
-x
-y
-annotationLinesAdded
-updated
-listCompletionMethod
+message\
+wParam\
+lParam\
+line\
+foldLevelNow\
+foldLevelPrev\
+margin\
+listType\
+x\
+y\
+annotationLinesAdded\
+updated\
+listCompletionMethod\
 characterSource
