@@ -76,7 +76,7 @@ updated\
 listCompletionMethod\
 characterSource
 
-## Margins and Styles
+## Margins, Styles, EOL Annotations
 
 For margins and styles, set the active "ID" like so:
 
@@ -84,4 +84,31 @@ For margins and styles, set the active "ID" like so:
 obj.Style.ID := 34 ; make future calls to obj.Style.* apply to style #34
 
 obj.Margin.ID := 2 ; make future calls to obj.Margin.* apply to margin #2
+
+obj.EOLAnn.Line := 3 ; make future calls to obj.EOLAnn.* apply to line #3
 ```
+
+I will probably continue to treat these types of functions this way for simplicity and consistency.  I find it to be working quite well in my tests, and I find it somewhat improves the readability of the code as well.
+
+## To-Do List
+
+I plan to still add the following categories / subclasses listed below.  A crossed out item indicates that category of functions has been added.
+
+
+* Annotations
+* AutoComplete and "Element Colors"
+* CallTips
+* Character Representations
+* ~~Direct Access~~
+* ~~EOL Annotations~~
+* Folding + SCI_SETVISIBLEPOLICY
+* IME and UTF-16
+* Indicators (underline and such)
+* KeyBindings
+* Keyboard Commands
+* Macro Recording
+* Markers
+* Multiple views
+* OSX Find Indicator
+* Printing
+* User Lists
