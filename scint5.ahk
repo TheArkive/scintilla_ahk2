@@ -1,4 +1,4 @@
-; AHK v2
+﻿; AHK v2
 ; ====================================================================
 ; Scintilla Class
 ; ====================================================================
@@ -65,9 +65,57 @@ class Scintilla extends Gui.Custom {
          , scn_listCompletionMethod:=(this.p=4) ? 92 : 148  ; int                   need user list or auto-complete to verify
          , scn_characterSource := (this.p=4)    ? 96 : 152  ; int                   need IME input to verify this
     
+    Static sc_eol := {Hidden:0
+                    , Standard:0x1
+                    , Boxed:0x2
+                    , Stadium:0x100         ; ( ... )
+                    , FlatCircle:0x101      ; | ... )
+                    , AngleCircle:0x102     ; < ... )
+                    , CircleFlat:0x110      ; ( ... |
+                    , Flats:0x111           ; | ... |
+                    , AngleFlat:0x112       ; < ... |
+                    , CircleAngle:0x120     ; ( ... >
+                    , FlatAngle:0x121       ; | ... >
+                    , Angles:0x122}         ; < ... >
+    
     Static sc_mod := {Ctrl:2, Alt:4, Shift:1, Meta:16, Super:8}
     
     Static sc_updated := {Content:0x1, Selection:2, VScroll:4, HScroll:8}
+    
+    Static sc_marker := {Circle:0x0
+                       , RoundRect:0x1
+                       , Arrow:0x2
+                       , SmallRect:0x3
+                       , ShortArrow:0x4
+                       , Empty:0x5
+                       , ArrowDown:0x6
+                       , Minus:0x7
+                       , Plus:0x8
+                       , Vline:0x9
+                       , LCorner:0xA
+                       , TCorner:0xB
+                       , BoxPlus:0xC
+                       , BoxPlusConnected:0xD
+                       , BoxMinus:0xE
+                       , BoxMinusConnected:0xF
+                       , LCornerCurve:0x10
+                       , TCornerCurve:0x11
+                       , CirclePlus:0x12
+                       , CirclePlusconnected:0x13
+                       , CircleMinus:0x14
+                       , CircleMinusconnected:0x15
+                       , Background:0x16
+                       , DotDotDot:0x17
+                       , Arrows:0x18
+                       , Pixmap:0x19
+                       , FullRect:0x1A
+                       , LeftRect:0x1B
+                       , Available:0x1C
+                       , Underline:0x1D
+                       , RgbaImage:0x1E
+                       , Bookmark:0x1F
+                       , VerticalBookmark:0x20
+                       , Character:0x2710}
     
     Static sc_modType := {None:0                    ; SCN members affected below...
                         , InsertText:0x1            ; pos, length, text, linesAdded
@@ -151,7 +199,7 @@ class Scintilla extends Gui.Custom {
         ; Character Representations
         ; Direct Access
         ctl.Edge := Scintilla.Edge(ctl)
-        ; EOL Annotations
+        ctl.EOLAnn := Scintilla.EOLAnn(ctl)
         ; Folding + SCI_SETVISIBLEPOLICY
         ctl.HotSpot := Scintilla.Hotspot(ctl)
         ; Indicators (underline and such)
@@ -690,6 +738,30 @@ class Scintilla extends Gui.Custom {
         Mode {                              ; int 0 = NONE, 1 = LINE, 2 = BACKGROUND, 3 = MULTI LINE
             get => this._sms(0x93A)         ; SCI_GETEDGEMODE
             set => this._sms(0x93B, value)  ; SCI_SETEDGEMODE
+        }
+    }
+    
+    class EOLAnn extends Scintilla.scint_base {
+        Line := 0
+        
+        ClearAll() {
+            return this._sms(0xAB8)                         ; SCI_EOLANNOTATIONCLEARALL
+        }
+        Style {                                             ; int
+            get => this._sms(0xAB7, this.Line)              ; SCI_EOLANNOTATIONGETSTYLE
+            set => this._sms(0xAB6, this.Line, value)       ; SCI_EOLANNOTATIONSETSTYLE
+        }
+        StyleOffset {
+            get => this._sms(0xABC)                         ; SCI_EOLANNOTATIONGETSTYLEOFFSET
+            set => this._sms(0xABB, value)                  ; SCI_EOLANNOTATIONSETSTYLEOFFSET
+        }
+        Text {                                              ; string
+            get => this._GetStr(0xAB5, this.Line)           ; SCI_EOLANNOTATIONGETTEXT
+            set => this._PutStr(0xAB4, this.Line, value)    ; SCI_EOLANNOTATIONSETTEXT
+        }
+        Visible {                                           ; flag value, see Static sc_eol above
+            get => this._sms(0xABA)                         ; SCI_EOLANNOTATIONGETVISIBLE
+            set => this._sms(0xAB9, value)                  ; SCI_EOLANNOTATIONSETVISIBLE
         }
     }
     
@@ -1816,12 +1888,24 @@ setup_scintilla(ctl) {
 F2::{
     Global
     
-    ctl.LinesJoin()
+    ; ctl.LinesJoin()
+    
+    s := Scintilla.sc_eol
+    
+    eol := ctl.EOLAnn ; line 0 by default
+    eol.Visible := s.AngleCircle ; < ... )
+    
+    eol.Text := "testing EOL text"
+    
+    
 }
 F3::{
     Global
     
-    ctl.LinesSplit(500)
+    ; ctl.LinesSplit(500)
+    
+    eol := ctl.EOLAnn ; line 0 by default
+    eol.ClearAll()
 }
 F4::{
     Global

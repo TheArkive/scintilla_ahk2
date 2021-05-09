@@ -110,5 +110,6 @@ I plan to still add the following categories / subclasses listed below.  A cross
 * Markers
 * Multiple views
 * OSX Find Indicator
+* Other Settings (finish up)
 * Printing
 * User Lists
