@@ -48,7 +48,7 @@ my_func(ctl, scn) {
 `ctl` is the Gui Control object, the Scintilla control.
 `scn` is the SCNotification struct as a sub-class.
 
-Members:
+`scn` Members:
 
 hwnd\
 id\
@@ -86,6 +86,10 @@ obj.Style.ID := 34 ; make future calls to obj.Style.* apply to style #34
 obj.Margin.ID := 2 ; make future calls to obj.Margin.* apply to margin #2
 
 obj.EOLAnn.Line := 3 ; make future calls to obj.EOLAnn.* apply to line #3
+
+obj.Marker.num := 4 ; make future calls to obj.Marker.* apply to marker #4
+                    ; NOTE: All methods in the Marker subclass also take a markerNum parameter.
+                    ; If you don't specify a markerNum, then the specified .num is used.
 ```
 
 I will probably continue to treat these types of functions this way for simplicity and consistency.  I find it to be working quite well in my tests, and I find it somewhat improves the readability of the code as well.
@@ -106,10 +110,10 @@ I plan to still add the following categories / subclasses listed below.  A cross
 * Indicators (underline and such)
 * KeyBindings
 * Keyboard Commands
-* Macro Recording
-* Markers
-* Multiple views
+* Macro Recording (technically done, but not tested, and might need index of SCI_\* constants)
+* ~~Markers~~
+* ~~Multiple views~~
 * OSX Find Indicator
-* Other Settings (finish up)
+* ~~Other Settings (finish up)~~
 * Printing
 * User Lists
