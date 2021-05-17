@@ -23,7 +23,39 @@ Here are a few general guidelines:
 
 # Current Changes
 
-Lots of additions
+2021/05/17
+
+* added ctl.Target.\* subclass, aka Searching category (forgot to add this from a week ago)
+* added ctl.Target.Text for getting the matched text
+* added ctl.Target.Prev(), .Next(), .Flags, .Tag(), .Anchor()
+* added ctl.CharIndex for implementing UTF-16 / UTF-32
+* added ctl.EscapeChar, .StringChar, .CommentLine, .CommentBlock, properties
+* fixed ctl.GetTextRange() to properly handle UTF-8 with wide characters
+* fixed ctl.LineText() to make fewer calls to the control to get line text
+* improved ctl.GetChar() to handle wide characters
+* added ctl.NextCharPos(), .NextChar(), .PrevCharPos(), .PrevChar()
+* removed ctl.Margin.DefaultMinWidth / .WidthOffset\
+Now calculation of number margin is more dynamic based on font size
+* `ctl.Event.MarginWidth()`, with only first two params, can be used to autosize the number margin on-demand
+* moved ctl.Style.TextWidth() to ctl.TextWidth()
+* added "DefaultOpt" and "DefaultTheme" options for Gui.AddScintilla(), see example
+* added ctl.AutoBraceMatch (false by default), uses style 40 and 41 by default (DefaultTheme)
+* added ctl.Event.BraceMatch() ... must be used in callback, don't use when `ctl.AutoBraceMatch := true`
+
+2021/05/11
+
+* moved example back to top, now initiating class with "(Scintilla)" for the example (see comments)
+* fixed some instances of blank optional parameters not functioning as intended
+* added Doc category (Multiple Views)
+* officially crossed off "Other Settings" category (it was done a while ago)
+* reorded several properties and methods on the main Scintilla class prepping for documentation
+* added ctl.AutoSizeNumberMargin (defaults to false)
+* added ctl.Events category for packaged functions/methods, intended to assist with common tasks
+* added ctl.Events.MarginWidth(margin, size) - for on-demand or usage within user callback (don't use this method directly in callback when `ctl.AutoSizeNumberMargin := true`)
+* added ctl.Margin.MinWidth / .DefaultMinWidth / .WidthOffset (mostly used in ctl.Events.MarginWidth())
+
+2021/05/05
+
 * added .wm_messages() callback per control created (attached to the Gui control obj)
 * added SCNotification struct as a sub-class
 * added callback property to Gui control object ... `callback(ctl, scn)`
