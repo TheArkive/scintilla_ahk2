@@ -49,14 +49,15 @@ F2::{
     s := ctl.Styling
     ; msgbox ctl.CurPos " / '" ctl.GetChar(ctl.CurPos) "'"
     ; ctl.FirstVisibleLine := 10
-    msgbox ctl.DocLine(ctl.FirstVisibleLine) " / " ctl.LinesOnScreen ; display first line / lines on screen
-    ; ctl.cancel := 1
+    ; msgbox ctl.DocLine(ctl.FirstVisibleLine) " / " ctl.LinesOnScreen ; display first line / lines on screen
     
-    txt := ""
-    Loop ctl.DocMap.Length
-        txt .= (txt?"`r`n":"") "line: " A_Index " / " ctl.DocMap[A_Index]
-    A_Clipboard := txt
-    msgbox "check it"
+    ; txt := ""
+    ; Loop ctl.DocMap.Length
+        ; txt .= (txt?"`r`n":"") "line: " A_Index " / " ctl.DocMap[A_Index]
+    ; A_Clipboard := txt
+    ; msgbox "check it"
+    
+    msgbox "Style: " ctl.GetStyle(ctl.CurPos) " / pos: " ctl.CurPos " / prev pos style: " ctl.GetStyle(ctl.CurPos-1)
 }
 
 ctl_callback(ctl, scn) { ; callback for wm_notify messages
@@ -417,6 +418,13 @@ class Scintilla extends Gui.Custom {
             
             If (scn.modType & modType.InsertText) || (event = "UpdateUI" && (scn.updated=4 || scn.updated=8)) {
                 
+                Loop scn.linesAdded {
+                    If (ctl.CurLine > ctl.LinesBeforeInsert)
+                        ctl.DocMap.Push(false) ; add lines at the end of the doc
+                    Else
+                        ctl.DocMap.InsertAt(ctl.LineFromPos(scn.pos)+1,false) ; add lines in the middle of the doc
+                }
+                
                 this._BraceInit := this.BraceInit.Bind(this,_scn)
                 If (event = "Modified") && (scn.linesAdded)
                     this.BraceInit(scn)
@@ -425,14 +433,8 @@ class Scintilla extends Gui.Custom {
                 If (event = "UpdateUI" && (scn.updated=4 || scn.updated=8))
                     SetTimer this._StylingRoutine, 0
                 
-                Loop scn.linesAdded {
-                    If (ctl.CurLine > ctl.LinesBeforeInsert)
-                        ctl.DocMap.Push(false) ; add lines at the end of the doc
-                    Else
-                        ctl.DocMap.InsertAt(ctl.LineFromPos(scn.pos)+1,false) ; add lines in the middle of the doc
-                }
-                
                 SetTimer this._StylingRoutine, -20
+                ; this.StylingRoutine(scn)
             }
             
             Else If (scn.modType & modType.BeforeDelete)
@@ -440,7 +442,7 @@ class Scintilla extends Gui.Custom {
         }
         
         ; If (scn.wmmsg_txt = "StyleNeeded") ; works but.... meh
-            ; this.StylingRoutine2(_scn)
+            ; this.StylingRoutine2(scn)
         
         ; =========================================================================
         ; User callback
@@ -473,11 +475,23 @@ class Scintilla extends Gui.Custom {
         bChars := RTrim(RegExReplace(ctl.Brace.Chars,"","\"),"\")       ; prep strings for regex
         cChar  := RTrim(RegExReplace(ctl.SyntaxCommentLine,"","\"),"\")
         
+        ; cBlock := StrSplit(ctl.SyntaxCommentBlock," ")
+        ; cb1 := RTrim(RegExReplace(cBlock[1],"","\"),"\")
+        ; cb2 := RTrim(RegExReplace(cBlock[2],"","\"),"\")
+        ; in_block_comment := false
+        
         start_line := ctl.LineFromPos(startPos := scn.pos)
         startPos := ctl.PosFromLine(start_line)
         _txt := ctl.GetTextRange(startPos,startPos+scn.length-1)
         
-        rgMatch := "mS)(\" q "[^\" q "]+\" q "|[\" q "]+|\" q "|[" cChar "]+ ?.*$|[" bChars "])"
+        ; rgMatch := "mS)(\" q "[^\" q "]+\" q "|[\" q "]{2,2}|\" q "|[" cChar "]+ ?.*$|[" bChars "])"
+        
+        rgMatch := "mS)("
+                 . "\" q "[^\" q "]+\" q
+                 . "|[\" q "]{2,2}"
+                 . "|[" cChar "]+ ?.*$"
+                 . "|[" bChars "]"
+                 . ")"
         oy := StrSplit(_txt,"`n","`r")
         
         For i, _txt in oy {
@@ -489,19 +503,18 @@ class Scintilla extends Gui.Custom {
                 curP := ctl.PosRelative(startPos,off1-1) ; scn.pos
                 spec_len := ctl.PosRelative(startPos,m.Len[1]) - startPos
                 
-                If RegExMatch(m[1],"S)^[" bChars "]") {
+                If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
+                    s.Start(curP), s.Set(spec_len,43)
+                
+                } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
+                    s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
+                
+                } Else If RegExMatch(m[1],"S)^[" bChars "]") {
                     If (ctl.GetStyle(curP) != 40)
                         s.Start(curP), s.Set(1,41) ; unmatched brace
                     
                     If ((bPos := ctl.Brace.Match(curP)) > -1) && (ctl.GetStyle(bPos) = 41)
                         s.Start(bPos), s.Set(1,40), s.Start(curP), s.Set(1,40)   ; matching braces
-                    
-                } Else If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
-                    s.Start(curP), s.Set(spec_len,43)
-                
-                } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
-                    s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
-                    
                 }
                 
                 off1 += m.Len[1]
@@ -518,6 +531,11 @@ class Scintilla extends Gui.Custom {
         
         startPos1 := scn.pos
         start_line := ctl.LineFromPos(scn.pos)
+        
+        ctl.DocMap[start_line+1] := false
+        Loop scn.linesAdded
+            ctl.DocMap.RemoveAt(start_line+1)
+        
         startPos := ctl.PosFromLine(start_line)
         diff := scn.pos - startPos
         newLen := scn.length + diff
@@ -552,21 +570,36 @@ class Scintilla extends Gui.Custom {
         bChars := RTrim(RegExReplace(ctl.Brace.Chars,"","\"),"\")       ; prep strings for regex
         pChars := RTrim(RegExReplace(ctl.SyntaxPunctChars,"","\"),"\")  ; scn props: text, length, linesAdded, pos
         cChar  := RTrim(RegExReplace(ctl.SyntaxCommentLine,"","\"),"\")
-        cBlock := StrSplit(RegExReplace(ctl.SyntaxCommentBlock,"","\")," ")
+        cBlock := StrSplit(ctl.SyntaxCommentBlock," ")
+        cb1 := RTrim(RegExReplace(cBlock[1],"","\"),"\")
+        cb2 := RTrim(RegExReplace(cBlock[2],"","\"),"\")
         
         start_line := ctl.LineFromPos(startPos := scn.pos)
         ctl.DocMap[start_line+1] := false
+        in_block_comment := false
         
         ; dbg("first visible line: " ctl.FirstVisibleDocLine " / curLine: " ctl.CurLine " / line before insert: " ctl.LineBeforeInsert)
         
         If (scn.linesAdded>0) || (scn.updated=4 || scn.updated=8) {
+            ; _line_txt := ctl.LineText(start_line)
+            ; cCharPos := InStr(_line_txt,ctl.SyntaxCommentLine)
+            ; _ugh_pos := 0
+            
+            ; If (scn.text = "`r`n" || scn.text = "`n") ; when hitting ENTER in a block comment
+            ; && (ctl.GetStyle(scn.pos-1)=44 && ctl.GetStyle(scn.pos+scn.length)=44)
+            ; && !(_ugh_pos := RegExMatch(_line_txt,cChar " ?.*$")) { ; check and make sure it isn't a regular comment
+                ; s.Start(scn.pos), s.Set(scn.length,44)
+                ; return
+            ; } Else If (_ugh_pos) && (ctl.GetStyle(ctl.PosRelative(startPos,_ugh_pos-1))!=44) {
+                ; s.Start(scn.pos), s.Set(scn.length,44) ; still checking it's not a regular comment
+                ; return
+            ; }
+            
+            ; dbg("ugh pos: " _ugh_pos " / style: " ctl.GetChar(ctl.PosRelative(startPos,_ugh_pos-1)) " / start line: " start_line)
+            
             If (Abs(ctl.LineBeforeInsert - ctl.CurLine) > ctl.LinesOnScreen) || (scn.updated=4 || scn.updated=8) {
-                dbg("scrolling...")
-                
                 start_line := ctl.FirstVisibleDocLine
                 end_line := start_line + ctl.LinesOnScreen
-                
-                dbg("start_line: " start_line " / end_line: " end_line)
                 
                 _txt := "", i := start_line
                 While (i <= end_line) {
@@ -579,9 +612,30 @@ class Scintilla extends Gui.Custom {
         } Else {
             startPos := ctl.PosFromLine(start_line)
             _txt := ctl.LineText(start_line)
+            
+            If (ctl.GetStyle(scn.pos-1)=44 && ctl.GetStyle(scn.pos+scn.length)=44) {
+                in_block_comment := true
+                
+                s.Start(scn.pos), s.Set(scn.length,44)
+                return
+            }
         }
         
-        rgMatch := "mS)([" bChars "]|[" pChars "]|0x[0-9a-fA-F]+|(?<!\w)[0-9]+|\" q "[^\" q "]+\" q "|[\" q "]+|\" q "|[" cChar "]+ ?.*$|[ \t\r\n]+)"
+        rgMatch := "mS)("
+                 . "\" q "[^\" q "]+\" q
+                 . "|[\" q "]{2,2}"
+                 . "|\" q
+                 . "|[" cChar "]+ ?.*$"
+                 ; . "|" cb1 ".*?" cb2
+                 ; . "|" cb1 ".*"
+                 . "|[" bChars "]"
+                 . "|[" pChars "]"
+                 . "|0x[0-9a-fA-F]+"
+                 . "|(?<!\w)[0-9]+"
+                 ; . "|[\w]+"
+                 . "|[ \t\r\n]+"
+                 . ")"
+        
         oy := StrSplit(_txt,"`n","`r")
         
         For i, _txt in oy {
@@ -589,6 +643,8 @@ class Scintilla extends Gui.Custom {
                 Break
             
             _line := start_line + (i-1)
+            ; If this.DocMap[_line+1]
+                ; continue
             startPos := ctl.PosFromLine(_line)
             
             off1 := 1
@@ -596,7 +652,35 @@ class Scintilla extends Gui.Custom {
                 curP := ctl.PosRelative(startPos,off1-1) ; scn.pos
                 spec_len := ctl.PosRelative(startPos,m.Len[1]) - startPos
                 
-                If RegExMatch(m[1],"S)^[" bChars "]") {
+                ; If (in_block_comment) { ; || (ctl.GetStyle(curP-1)=44 && ctl.GetStyle(curP+1)=44) {
+                    ; spec_len := ctl.PosRelative(startPos,ctl.LineLength(_line)) - startPos
+                    
+                    ; dbg("txt: " _txt " / line: " _line " / txt2: " ctl.LineText(_line))
+                    
+                    ; If RegExMatch(_txt,cb2 "$") {
+                        ; s.Start(curP), s.Set(spec_len,44) ; block comment
+                        ; in_block_comment := false
+                    ; } Else {
+                        ; s.Start(curP), s.Set(spec_len,44) ; block comment
+                    ; }
+                    ; Break
+                    
+                ; } Else 
+                If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
+                    s.Start(curP), s.Set(spec_len,43)
+                
+                } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
+                    s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
+                
+                ; } Else if RegExMatch(m[1],"mS)^" cb1 ".*?" cb2) { ; block comments - one line
+                    ; s.Start(curP), s.Set(spec_len,44)
+                
+                ; } Else if RegExMatch(m[1],"S)^" cb1 ".*") {
+                    ; in_block_comment := true
+                    ; s.Start(curP), s.Set(ctl.LineLength(_line),44) ; spec_len
+                    ; Break
+                
+                } Else If RegExMatch(m[1],"S)^[" bChars "]") {
                     If (ctl.GetStyle(curP) != 40)
                         s.Start(curP), s.Set(1,41) ; unmatched brace
                     
@@ -605,25 +689,21 @@ class Scintilla extends Gui.Custom {
                     
                 } Else If RegExMatch(m[1],"S)^[" pChars "]") { ; syntax punctuation (operators, separators, etc)
                     s.Start(curP), s.Set(1,42)
-                
+                    
                 } Else If RegExMatch(m[1],"S)^0x[0-9a-fA-F]+") {
                     s.Start(curP), s.Set(m.Len[1],45)
-                
+                    
                 } Else if RegExMatch(m[1],"S)^(?<!\w)[0-9]+") {
                     s.Start(curP), s.Set(m.Len[1],45)
-                
+                    
                 } Else If (m[1] = q) {
                     s.Start(curP), s.Set(1,43)
                     
-                } Else If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
-                    s.Start(curP), s.Set(spec_len,43)
-                
-                } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
-                    s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
-                
-                } Else If RegExMatch(m[1],"S)(?:^[ \t\r\n]+)") {
-                    s.Start(curP), s.Set(m.Len[1],32)
                 }
+                ; Else If RegExMatch(m[1],"S)(?:^[ \t\r\n]+)") {
+                    ; s.Start(curP), s.Set(m.Len[1],32)
+                    
+                ; }
                 
                 off1 += m.Len[1]
             }
@@ -641,6 +721,14 @@ class Scintilla extends Gui.Custom {
         ; 44 ; comment
         ; 45 ; numbers
     }
+
+/* testing
+1234
+*/
+
+; var := "; " /* blah */
+
+; big test test!
 
     StylingRoutine2(scn) { ; SC_StyleNeeded event only ; disable StylingRoutine() and DeleteRoutine() if using this
         Static ctl := this ; this is temporary

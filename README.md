@@ -15,11 +15,13 @@ Pick your desired 32-bit or 64-bit version for download.  Unzip and copy over th
 
 I finally have the first version of a custom styling routine written enrirely in AHK.  It's a decent start, and performs well (at least for my uses).  I'll improve performance by splitting up the syntax coloring and prioritizing the user view first.
 
-I did try to use the `SC_StyleNeeded` event.  It actually is faster and is also currently implemented, but commented out, so it can be enabled if you want to test it.  It seems to only actually do stying when the user moves the mouse or scrolls.  When pasting large amounts of text this is problematic.  Even if you wait for the syntax coloring to catch up, well, it never happens, unless you move the mouse or scroll.
+I did try to use the `SC_StyleNeeded` event.  It actually is about the same speed and is also currently implemented, but commented out, so it can be enabled if you want to test it.  Styling with `SC_StyleNeeded` doesn't work too well with large pastes.  If you try to wait for the syntax coloring to catch up,  it never happens, unless you move the mouse or scroll.
 
 In general, after I get syntax highlighting performing the way I want, I'll expand it to include word lists, more classes of characters for and punctuation, and so on.
 
 Then I'll move on to call tips and auto-complete.  That's the rough plan for now.
+
+NOTE: I have tried to support multi-line `/* block */` comments, but it's just not in the cards at the moment.  I have the makings of my attempts commented out.  I managed to get it to somewhat work but only in very specific circumstances.
 
 # Documentation
 
@@ -47,7 +49,7 @@ Here are a few general guidelines:
 * removed Events class, I'm just putting these events in as methods of the class
 * performance is quite decent, but needs to be broken up to prioritize user viewed lines first
 --------------------
-* refined pasting large chunks of text (getting 6s load time on ~2MB of text)
+* refined pasting large chunks of text (getting ≈6s load time on ≈2MB of text)
 * initial coloring is strings, comments, and braces only (in that order) on the first go
 * other syntax elements are colord per-screen when scrolling, or per-line when typing
 
