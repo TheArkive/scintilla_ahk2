@@ -46,6 +46,10 @@ Here are a few general guidelines:
 * removed old AutoBraceMatching()
 * removed Events class, I'm just putting these events in as methods of the class
 * performance is quite decent, but needs to be broken up to prioritize user viewed lines first
+--------------------
+* refined pasting large chunks of text (getting 6s load time on ~2MB of text)
+* initial coloring is strings, comments, and braces only (in that order) on the first go
+* other syntax elements are colord per-screen when scrolling, or per-line when typing
 
 2021/05/17
 
