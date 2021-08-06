@@ -11,6 +11,16 @@ Direct Links:
 
 Pick your desired 32-bit or 64-bit version for download.  Unzip and copy over the `Scintilla.dll` from the unzipped folder into the same folder as the script.  You can of course place the DLL anywhere, but make sure you modify the class lib in `Static __New()` to point to the proper DLL location.
 
+## Status
+
+I finally have the first version of a custom styling routine written enrirely in AHK.  It's a decent start, and performs well (at least for my uses).  I'll improve performance by splitting up the syntax coloring and prioritizing the user view first.
+
+I did try to use the `SC_StyleNeeded` event.  It actually is faster and is also currently implemented, but commented out, so it can be enabled if you want to test it.  It seems to only actually do stying when the user moves the mouse or scrolls.  When pasting large amounts of text this is problematic.  Even if you wait for the syntax coloring to catch up, well, it never happens, unless you move the mouse or scroll.
+
+In general, after I get syntax highlighting performing the way I want, I'll expand it to include word lists, more classes of characters for and punctuation, and so on.
+
+Then I'll move on to call tips and auto-complete.  That's the rough plan for now.
+
 # Documentation
 
 Making the documentation will be a lengthy work in progress...
@@ -22,6 +32,20 @@ Here are a few general guidelines:
 * Not all Scintilla functions will make it into this library.  Basically, functions that appear to duplicate another function's result with little or no benefit won't be added, unless there is a good reason, in which case it may get a different name to more appropriately describe what it is best used for.
 
 # Current Changes
+
+2021/08/06
+* updated to Scintilla 5.1.1
+* Custom syntax highlighting basic framework is now complete:
+  - see StylingRoutine() and DeleteRoutine() methods
+  - currently numbers, strings, comments, braces, and punctuation are colored
+  - not much customization available yet, unless you edit the class directly
+  - I plant to implement a framework that will make defining specific colors for specific groups/types of characters
+* cleaned up code
+* implemented SCI_GETDIRECTSTATUSFUNCTION in place of SCI_GETDIRECTFUNCTION
+* ctl.Status property now pulls the status from what was returned using the new DirectStatusFunction (should be faster when checking status)
+* removed old AutoBraceMatching()
+* removed Events class, I'm just putting these events in as methods of the class
+* performance is quite decent, but needs to be broken up to prioritize user viewed lines first
 
 2021/05/17
 
