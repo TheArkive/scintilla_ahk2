@@ -2,6 +2,9 @@
 ; ====================================================================
 ; Example
 ; ====================================================================
+
+hMod := DllCall("LoadLibrary","Str","test.dll","UPtr")
+
 (Scintilla) ; Init class, or simply #INCLUDE the extension-lib at the top.
 
 g := Gui("+Resize +E0x2000000 0x2000000","Scintilla Test")
@@ -9,26 +12,59 @@ g.OnEvent("Close",gui_close)
 g.OnEvent("Escape",gui_close)
 g.OnEvent("Size",gui_size)
 
+ctl := g.AddScintilla("vMyScintilla w1000 h500 DefaultOpt DefaultTheme")
 
-ctl := g.AddScintilla("vMyScintilla w500 h500 DefaultOpt DefaultTheme")
+; ======================================================================
+
+; ctl.UseDirect := true ; the DLL uses the Direct Ptr for now
+ctl.Wrap.LayoutCache := 3 ; speeds up window resize on large docs
 
 ; ======================================================================
 ; items that should be set by the user
 ; ======================================================================
 ctl.Brace.Chars := "[]{}()" ; modify braces list that will be tracked
-ctl.SyntaxPunctChars := "?:*+-&^|!~/\.,=<>"
+ctl.SyntaxCommentLine := ";" ; test "// comment" by changing ";" to "//"
+ctl.SyntaxPunctChars := "?:*+-&^|!~/\.,=<>%" ; modify SyntaxPunctChars to include < and >
 ctl.AutoSizeNumberMargin := true
 
-ctl.Target.Flags := Scintilla.sc_search.RegXP | Scintilla.sc_search.POSIX
+; ======================================================================
+; Simple to apply vertical colored lines at specified column - uncomment to test
+; ======================================================================
+; ctl.Edge.Mode := 3 ; vertical lines - handy!
+; ctl.Edge.Multi.Add(5,0xFF0000)
+; ctl.Edge.Multi.Add(10,0x00FF00)
+; ctl.Edge.Multi.Add(15,0x0000FF)
+; ctl.Edge.View := 1
+; ======================================================================
 
-; ctl.Edge.Mode := 1 ; vertical lines - handy!
-; ctl.Edge.Color := 0xABCD00
-; ctl.Edge.Column := 50
+; ======================================================================
+; To see white space/CRLF/other special non-printing chars
+; ======================================================================
 ; ctl.WhiteSpace.View := 1
+; ctl.LineEnding.View := 1
+; ======================================================================
 
-ctl.callback := ctl_callback
-ctl.CustomSyntaxHighlighting := true
-; ctl.Styling.Idle := 3 ; do NOT set this when using my syntax highlight.  My syntax highlighting works differently.
+; ctl.callback := ctl_callback ; this doesn't do anything for now
+ctl.CustomSyntaxHighlighting := true ; turning this off turns off syntax highlighting
+; ctl.Target.Flags := Scintilla.sc_search.RegXP | Scintilla.sc_search.CXX11RegEx ; CXX11RegEx | POSIX
+
+; ======================================================================
+
+; ctl.Styling.Idle := 3 ; do NOT set this when using my syntax highlighting.  My syntax highlighting works differently.
+
+sFile := A_ScriptDir "\" A_ScriptName ; this script
+; sFile := "test-script.ahk" ; 2.16 MB
+
+size := FileGetSize(sFile)
+ptr := ctl.Doc.Create(size+100)
+ctl.Doc.ptr := ptr
+ctl.Text := FileRead(sFile)
+
+; ======================================================================
+; These must be set manually after changing document ptr.
+; ======================================================================
+ctl.Tab.Use := false ; use spaces instad of tabs
+ctl.Tab.Width := 4 ; number of spaces for a tab
 
 ; ======================================================================
 ; show GUI
@@ -36,7 +72,7 @@ ctl.CustomSyntaxHighlighting := true
 g.Show()
 
 gui_size(g, minMax, w, h) {
-    ctl := g["MyScintilla"]
+    ctl := g["MyScintilla"] ; test
     ctl.Move(,,w-(g.MarginX * 2), h-(g.MarginY * 2))
 }
 
@@ -46,18 +82,18 @@ gui_close(*) {
 
 F2::{
     global ctl
-    s := ctl.Styling
-    ; msgbox ctl.CurPos " / '" ctl.GetChar(ctl.CurPos) "'"
-    ; ctl.FirstVisibleLine := 10
-    ; msgbox ctl.DocLine(ctl.FirstVisibleLine) " / " ctl.LinesOnScreen ; display first line / lines on screen
     
-    ; txt := ""
-    ; Loop ctl.DocMap.Length
-        ; txt .= (txt?"`r`n":"") "line: " A_Index " / " ctl.DocMap[A_Index]
-    ; A_Clipboard := txt
-    ; msgbox "check it"
-    
-    msgbox "Style: " ctl.GetStyle(ctl.CurPos) " / pos: " ctl.CurPos " / prev pos style: " ctl.GetStyle(ctl.CurPos-1)
+    msgbox ctl.CurPos " / style: " ctl.GetStyle(ctl.curPos) " / lines on screen: " ctl.LinesOnScreen
+}
+
+F3::{
+    msgbox "curPos: " ctl.curPos " / match: " ctl.Brace.Match(ctl.curPos) " / last style: " ctl.Styling.Last
+}
+
+F4::{
+    global ctl
+    ctl.Tab.Use := false ; use spaces instad of tabs
+    ctl.Tab.Width := 4 ; number of spaces for a tab
 }
 
 ctl_callback(ctl, scn) { ; callback for wm_notify messages
@@ -237,10 +273,19 @@ class Scintilla extends Gui.Custom {
         Gui.Prototype.AddScintilla := ObjBindMethod(this,"AddScintilla")    ; Multiple gui subclass extensions don't play well together.
         
         scint_path := A_ScriptDir "\Scintilla.dll" ; Set this as needed.
-        If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path)) {    ; load dll, make sure it works
+        
+        If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path), "UPtr") {    ; load dll, make sure it works
             MsgBox "Scintilla DLL not found.`n`nModify the path to the appropriate location for your script."
             ExitApp
         }
+        
+        custom_lexer := "CustomLexer.dll" ; change this path as needed (if you choose to move the DLL)
+        If !DllCall("LoadLibrary", "Str", custom_lexer, "UPtr") {
+            Msgbox "CustomLexer.dll not found."
+            ExitApp
+        }
+        
+        ; Scintilla.scint_base.Prototype._sms := Scintilla.scint_base.Prototype.__sms_slow
         
         For prop in Scintilla.scint_base.prototype.OwnProps() ; attach utility methods to prototype
             If !(SubStr(prop,1,2) = "__") And (SubStr(prop,1,1) = "_")
@@ -268,9 +313,19 @@ class Scintilla extends Gui.Custom {
         ctl := _gui.Add("Custom","ClassScintilla " sOptions)
         ctl.base := Scintilla.Prototype ; attach methods (but not static ones)
         
+        ; ======================================================================
+        ; Init DLL for using scint control in AHK script and get Direct Func/Ptr
+        ; ======================================================================
+        buf := Buffer(8,0)
+        NumPut("UPtr", ctl.hwnd, buf)
+        result := DllCall("CustomLexer\Init","UPtr",buf.ptr,"UPtr") ; init DLL and get direct func/ptr
+        ; dbg("startup: " result)
+        ; ======================================================================
+        
         ctl.msg_cb := ObjBindMethod(ctl, "wm_messages") ; Register wm_notify messages
         OnMessage(0x4E, ctl.msg_cb)
         
+        ctl._ScreenStyling := 0 ; init for styling timer
         ctl.callback := ""      ; setting some main properties
         ctl.state := ""         ; used to determine input "mode", ie. string, comment, etc.
         ctl._StatusD := 0
@@ -284,10 +339,11 @@ class Scintilla extends Gui.Custom {
         ctl._AutoPunctColor := false
         ctl._CharIndex := 0 ; 0 = NONE (ie. UTF-8) / 1 = UTF-32 / 2 = UTF-16
         ctl.SyntaxCommentLine := ";"
-        ctl.SyntaxCommentBlock := "/* */"
+        ctl.SyntaxCommentBlockA := "/*"
+        ctl.SyntaxCommentBlockB := "*/"
         ctl.SyntaxStringChar := Chr(34)
         ctl.SyntaxEscapeChar := Chr(96)
-        ctl.SyntaxPunctChars := "?:*+-&^|!~/\.,="
+        ctl.SyntaxPunctChars := "?:*+-&^|!~/\.,=%"
         ctl.SyntaxString1 := Chr(34)
         ctl.SyntaxString2 := "'"
         
@@ -298,42 +354,8 @@ class Scintilla extends Gui.Custom {
         ctl.StopStyling := false
         ctl.CustomSyntaxHighlighting := false
         ctl.DocMap := [false] ; init as blank document with one unstyled line
-        ctl.LinesBeforeInsert := 1
-        ctl.LineBeforeInsert := 0
         
-        ; =============================================
-        ; attach main objects to Scintilla control
-        ; =============================================
-        ; Annotations
-        ; AutoComplete and "Element Colors"
-        ctl.Brace := Scintilla.Brace(ctl)
-        ; CallTips
-        ctl.Caret := Scintilla.Caret(ctl)
-        ; Character Representations
-        ctl.Doc := Scintilla.Doc(ctl)           ; Multiple views
-        ctl.Edge := Scintilla.Edge(ctl)         ; Long lines
-        ctl.EOLAnn := Scintilla.EOLAnn(ctl)     ; End of Line Annotations
-        ; ctl.Event := Scintilla.Event(ctl)       ; Custom easy methods for common actions
-        ; Folding + SCI_SETVISIBLEPOLICY
-        ctl.HotSpot := Scintilla.Hotspot(ctl)
-        ; Indicators (underline and such)
-        ; KeyBindings
-        ; Keyboard Commands
-        ctl.LineEnding := Scintilla.LineEnding(ctl)
-        ctl.Macro := Scintilla.Macro(ctl) ; planning to add obj to index all recordable msg numbers
-        ctl.Margin := Scintilla.Margin(ctl)
-        ctl.Marker := Scintilla.Marker(ctl)
-        ; OSX Find Indicator
-        ; Printing
-        ctl.Selection := Scintilla.Selection(ctl)
-        ctl.Style := Scintilla.Style(ctl)
-        ctl.Styling := Scintilla.Styling(ctl)
-        ctl.Tab := Scintilla.Tab(ctl)
-        ctl.Target := Scintilla.Target(ctl)
-        ; User Lists?
-        ctl.WhiteSpace := Scintilla.WhiteSpace(ctl)
-        ctl.Word := Scintilla.Word(ctl)
-        ctl.Wrap := Scintilla.Wrap(ctl)
+        ctl.init_classes()
         
         ; =============================================
         ; custom settings for control here
@@ -348,6 +370,44 @@ class Scintilla extends Gui.Custom {
             ctl.DefaultTheme()
         
         return ctl
+    }
+    init_classes() {
+        ; =============================================
+        ; attach main objects to Scintilla control
+        ; =============================================
+        ; Annotations
+        ; AutoComplete and "Element Colors"
+        this.Brace := Scintilla.Brace(this)
+        ; CallTips
+        this.Caret := Scintilla.Caret(this)
+        ; Character Representations
+        this.Doc := Scintilla.Doc(this)           ; Multiple views
+        this.Edge := Scintilla.Edge(this)         ; Long lines
+        this.EOLAnn := Scintilla.EOLAnn(this)     ; End of Line Annotations
+        ; this.Event := Scintilla.Event(this)       ; Custom easy methods for common actions
+        ; Folding + SCI_SETVISIBLEPOLICY
+        this.HotSpot := Scintilla.Hotspot(this)
+        ; Indicators (underline and such)
+        ; KeyBindings
+        ; Keyboard Commands
+        this.LineEnding := Scintilla.LineEnding(this)
+        this.Macro := Scintilla.Macro(this) ; planning to add obj to index all recordable msg numbers
+        this.Margin := Scintilla.Margin(this)
+        this.Marker := Scintilla.Marker(this)
+        ; OSX Find Indicator
+        ; Printing
+        this.Selection := Scintilla.Selection(this)
+        this.Style := Scintilla.Style(this)
+        this.Styling := Scintilla.Styling(this)
+        this.Tab := Scintilla.Tab(this)
+        this.Target := Scintilla.Target(this)
+        ; User Lists?
+        this.WhiteSpace := Scintilla.WhiteSpace(this)
+        this.Word := Scintilla.Word(this)
+        this.Wrap := Scintilla.Wrap(this)
+        
+        this.cust := Scintilla.cust(this)
+
     }
     Static Lookup(member, in_value) {
         For prop, value in this.%member%.OwnProps()
@@ -370,37 +430,38 @@ class Scintilla extends Gui.Custom {
         Static modType := Scintilla.sc_modType
         
         scn := Scintilla.SCNotification(lParam)
-        _scn := {hwnd:scn.hwnd
-               , id:scn.id
-               , wmmsg:scn.wmmsg
-               , pos:scn.pos
-               , ch:scn.ch
-               , mod:scn.mod
-               , modType:scn.modType
-               , text:scn.text
-               , length:scn.length
-               , linesAdded:scn.linesAdded
-               , message:scn.message
-               , wParam:scn.wParam
-               , lParam:scn.lParam
-               , line:scn.line
-               , foldLevelNow:scn.foldLevelNow
-               , foldLevelPrev:scn.foldLevelPrev
-               , margin:scn.margin
-               , listType:scn.listType
-               , x:scn.x
-               , y:scn.y
-               , token:scn.token
-               , annotationLinesAdded:scn.annotationLinesAdded
-               , updated:scn.updated
-               , listCompletionMethod:scn.listCompletionMethod
-               , characterSource:scn.characterSource}
+        scn.LineBeforeInsert := this.CurLine
+        scn.LinesBeforeInsert := this.Lines
+        
+        ; _scn := {hwnd:scn.hwnd
+               ; , id:scn.id
+               ; , wmmsg:scn.wmmsg
+               ; , pos:scn.pos ; 
+               ; , ch:scn.ch
+               ; , mod:scn.mod
+               ; , modType:scn.modType
+               ; , text:scn.text ; 
+               ; , length:scn.length
+               ; , linesAdded:scn.linesAdded ;
+               ; , message:scn.message
+               ; , wParam:scn.wParam
+               ; , lParam:scn.lParam
+               ; , line:scn.line
+               ; , foldLevelNow:scn.foldLevelNow
+               ; , foldLevelPrev:scn.foldLevelPrev
+               ; , margin:scn.margin
+               ; , listType:scn.listType
+               ; , x:scn.x
+               ; , y:scn.y
+               ; , token:scn.token
+               ; , annotationLinesAdded:scn.annotationLinesAdded
+               ; , updated:scn.updated ;
+               ; , listCompletionMethod:scn.listCompletionMethod
+               ; , characterSource:scn.characterSource}
         
         event := scn.wmmsg_txt := Scintilla.Lookup("wm_notify", (msg_num := scn.wmmsg))
-        _scn.wmmsg_txt := event
         
-        If (event = "UpdateUI" && (scn.updated=4 || scn.updated=8))
-            dbg("top line: " ctl.FirstVisibleDocLine)
+        ; dbg("event: " event)
         
         ; =========================================================================
         ; Easy events: Comment any of these out if you want to fine-tune function
@@ -411,45 +472,50 @@ class Scintilla extends Gui.Custom {
             this.MarginWidth(0, 33, scn) ; number margin 0, with default style 33
         
         If (this.CustomSyntaxHighlighting) {
-            If (scn.modType & modType.BeforeInsert) {
-                this.LinesBeforeInsert := this.Lines
-                this.LineBeforeInsert := this.CurLine
-            }
             
-            If (scn.modType & modType.InsertText) || (event = "UpdateUI" && (scn.updated=4 || scn.updated=8)) {
+            If (scn.modType & modType.InsertText)                           ; Captures text editing and scrolling
+            || (event = "UpdateUI" && (scn.updated=4 || scn.updated=8)) {
+            
+                _scn := {pos:scn.pos, text:scn.text, linesAdded:scn.linesAdded  ; Etract values for timers, otherwise
+                       , updated:scn.updated, wmmsg_txt:event                   ; those values are destroyed.
+                       , LineBeforeInsert:ctl.CurLine
+                       , LinesBeforeInsert:this.Lines
+                       , Length:scn.length}    
                 
-                Loop scn.linesAdded {
-                    If (ctl.CurLine > ctl.LinesBeforeInsert)
-                        ctl.DocMap.Push(false) ; add lines at the end of the doc
-                    Else
-                        ctl.DocMap.InsertAt(ctl.LineFromPos(scn.pos)+1,false) ; add lines in the middle of the doc
+                If (event = "Modified") && (scn.linesAdded) { ; paste or document load operation
+                    ticks := A_TickCount
+                    this.ChunkColoring(scn)
+                    dbg( "BraceInit Seconds:  " (A_TickCount - ticks) / 1000 " / End Style: " this.Styling.Last)
+                } 
+                else if (event = "Modified") && (!scn.linesAdded) {
+                    ; ticks := A_TickCount
+                    this.ChunkColoring(scn)
+                    ; dbg( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / End Style: " this.Styling.Last)
                 }
                 
-                this._BraceInit := this.BraceInit.Bind(this,_scn)
-                If (event = "Modified") && (scn.linesAdded)
-                    this.BraceInit(scn)
-                
-                this._StylingRoutine := this.StylingRoutine.Bind(this,_scn)
-                If (event = "UpdateUI" && (scn.updated=4 || scn.updated=8))
-                    SetTimer this._StylingRoutine, 0
-                
-                SetTimer this._StylingRoutine, -20
-                ; this.StylingRoutine(scn)
             }
             
             Else If (scn.modType & modType.BeforeDelete)
-                this.DeleteRoutine(ctl, _scn)
+                this.DeleteRoutine(scn)
+            Else if (scn.modType & modType.DeleteText)
+                this.ChunkColoring(scn) ; redo coloring after delete
         }
         
-        ; If (scn.wmmsg_txt = "StyleNeeded") ; works but.... meh
-            ; this.StylingRoutine2(scn)
+        
+        
+        If (scn.wmmsg_txt = "StyleNeeded") { ; works but doesn't perform well with large pastes
+            ; ticks := A_TickCount
+            this.Pacify() ; pacify the StyleNeeded bit by styling the last char in the doc
+            ; dbg( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
+            
+        }
         
         ; =========================================================================
         ; User callback
         ; =========================================================================
         
         If (this.callback)
-            f := this.callback(_scn)
+            f := this.callback(scn)
     }
     
     MarginWidth(margin:=0, style:=33, scn:="") {
@@ -467,345 +533,197 @@ class Scintilla extends Gui.Custom {
         this.Margin.Width := (width >= min_width) ? width : min_width
     }
     
-    BraceInit(scn) {
-                Static ctl := this
-        Static s := ctl.Styling
-             , q := Chr(34)
-        
-        bChars := RTrim(RegExReplace(ctl.Brace.Chars,"","\"),"\")       ; prep strings for regex
-        cChar  := RTrim(RegExReplace(ctl.SyntaxCommentLine,"","\"),"\")
-        
-        ; cBlock := StrSplit(ctl.SyntaxCommentBlock," ")
-        ; cb1 := RTrim(RegExReplace(cBlock[1],"","\"),"\")
-        ; cb2 := RTrim(RegExReplace(cBlock[2],"","\"),"\")
-        ; in_block_comment := false
-        
-        start_line := ctl.LineFromPos(startPos := scn.pos)
-        startPos := ctl.PosFromLine(start_line)
-        _txt := ctl.GetTextRange(startPos,startPos+scn.length-1)
-        
-        ; rgMatch := "mS)(\" q "[^\" q "]+\" q "|[\" q "]{2,2}|\" q "|[" cChar "]+ ?.*$|[" bChars "])"
-        
-        rgMatch := "mS)("
-                 . "\" q "[^\" q "]+\" q
-                 . "|[\" q "]{2,2}"
-                 . "|[" cChar "]+ ?.*$"
-                 . "|[" bChars "]"
-                 . ")"
-        oy := StrSplit(_txt,"`n","`r")
-        
-        For i, _txt in oy {
-            _line := start_line + (i-1)
-            startPos := ctl.PosFromLine(_line)
-            
-            off1 := 1
-            While (off1 := RegExMatch(_txt, rgMatch, &m, off1)) { ; scn.text
-                curP := ctl.PosRelative(startPos,off1-1) ; scn.pos
-                spec_len := ctl.PosRelative(startPos,m.Len[1]) - startPos
-                
-                If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
-                    s.Start(curP), s.Set(spec_len,43)
-                
-                } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
-                    s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
-                
-                } Else If RegExMatch(m[1],"S)^[" bChars "]") {
-                    If (ctl.GetStyle(curP) != 40)
-                        s.Start(curP), s.Set(1,41) ; unmatched brace
-                    
-                    If ((bPos := ctl.Brace.Match(curP)) > -1) && (ctl.GetStyle(bPos) = 41)
-                        s.Start(bPos), s.Set(1,40), s.Start(curP), s.Set(1,40)   ; matching braces
-                }
-                
-                off1 += m.Len[1]
-            }
-        }
+    Pacify() { ; hopefully no one ends the doc with a multi-byte character
+        _lastPos := ctl.Length-1
+        , _style := this.GetStyle(_lastPos)
+        , this._sms(0x7F0, (_lastPos), 0) ;  // SCI_STARTSTYLING
+        , this._sms(0x7F1, 1, _style) ;  // SCI_SETSTYLING
     }
     
-    DeleteRoutine(ctl, scn) {
-        Static s := ctl.Styling
-             , q := Chr(34)
+    ; BraceInit(scn, _type) { ; benchmarking for C code equivalent in AHK -- NEW 1 -- avg 13 secs
+        ; Static q := Chr(34)
         
-        If (scn.length = ctl.length)
-            return
+        ; startLine := this._sms(0x876, scn.pos, 0) ; // SCI_LINEFROMPOSITION
+        ; startPos  := this._sms(0x877, startLine, 0) ; // SCI_POSITIONFROMLINE
+        ; lineLen   := this._sms(0x92E, startLine, 0) ; // SCI_LINELENGTH
         
-        startPos1 := scn.pos
-        start_line := ctl.LineFromPos(scn.pos)
+        ; endPos    := !scn.linesAdded ? startPos + lineLen : scn.pos + scn.length
         
-        ctl.DocMap[start_line+1] := false
-        Loop scn.linesAdded
-            ctl.DocMap.RemoveAt(start_line+1)
+        ; chunkLen  := endPos - startPos
         
-        startPos := ctl.PosFromLine(start_line)
-        diff := scn.pos - startPos
-        newLen := scn.length + diff
-        _txt := ctl.GetTextRange(startPos, startPos + newLen)
+        ; docTextRange := this.GetTextRange(startPos, endPos)
+        ;;;;;;;;;;;;;;;;;;;;;;;; , docTextRange := StrSplit(this.GetTextRange(startPos, endPos))
         
-        bChars := RTrim(RegExReplace(ctl.Brace.Chars,"","\"),"\")       ; prep strings for regex
-        oy := StrSplit(_txt,"`n","`r")
         
-        For i, _txt in oy {
-            _line := start_line + (i-1)
-            startPos := ctl.PosFromLine(_line)
+        ; , style_st := 0, style_check := 0, curPos := startPos, mPos := 0, charWidth := 0
+        
+        ; , SCINT_NONE := 0
+        ; , SCINT_STRING1 := 1
+        ; , SCINT_STRING2 := 2
+        ; , SCINT_COMMENT1 := 3
+        ; , SCINT_COMMENT2 := 4
+        
+        ; , style_type := "", curChar := "", prevChar := "", curStyle := SCINT_NONE
+        ; , com1    := this.SyntaxCommentLine
+        ; , com2a   := this.SyntaxCommentBlockA
+        ; , com2b   := this.SyntaxCommentBlockB
+        ; , escChar := this.SyntaxEscapeChar
+        
+        ; Loop Parse docTextRange ; A_LoopField per char
+        ;;;;;;;;;;;;;;;;;;;;;;;; For i, curChar in docTextRange
+        ; {
+            ; curPos += charWidth
+            ; , curChar := A_LoopField
+            ; , charWidth := StrPut(curChar,"UTF-8") - 1
             
-            off1 := (i=1) ? diff+1 : 1
-            kill_brace := []
-            While (off1 := RegExMatch(_txt,"[" bChars "]",,off1)) { ; Loop through and catalog braces.
-                curP := ctl.PosRelative(startPos,off1-1)            ; This seems to be necessary in order to
-                If (brMatch := ctl.Brace.Match(curP))               ; properly handle total custom highlighting.
-                    kill_brace.Push({a:curP, b:brMatch})
-                off1++
-            }
+            ;;;;;;;;;;;;;;;;;;;;;;;;; , i := A_Index
+            ;;;;;;;;;;;;;;;;;;;;;;;;; , ahk_pos := curPos + charWidth
             
-            For i, obj in kill_brace ; highlight in one go
-                s.Start(obj.a), s.Set(1,41), s.Start(obj.b), s.Set(1,41)
-        }
-    }
-
-    StylingRoutine(scn) {
-        Static ctl := this
-        Static s := ctl.Styling
-             , q := Chr(34)
-        
-        bChars := RTrim(RegExReplace(ctl.Brace.Chars,"","\"),"\")       ; prep strings for regex
-        pChars := RTrim(RegExReplace(ctl.SyntaxPunctChars,"","\"),"\")  ; scn props: text, length, linesAdded, pos
-        cChar  := RTrim(RegExReplace(ctl.SyntaxCommentLine,"","\"),"\")
-        cBlock := StrSplit(ctl.SyntaxCommentBlock," ")
-        cb1 := RTrim(RegExReplace(cBlock[1],"","\"),"\")
-        cb2 := RTrim(RegExReplace(cBlock[2],"","\"),"\")
-        
-        start_line := ctl.LineFromPos(startPos := scn.pos)
-        ctl.DocMap[start_line+1] := false
-        in_block_comment := false
-        
-        ; dbg("first visible line: " ctl.FirstVisibleDocLine " / curLine: " ctl.CurLine " / line before insert: " ctl.LineBeforeInsert)
-        
-        If (scn.linesAdded>0) || (scn.updated=4 || scn.updated=8) {
-            ; _line_txt := ctl.LineText(start_line)
-            ; cCharPos := InStr(_line_txt,ctl.SyntaxCommentLine)
-            ; _ugh_pos := 0
-            
-            ; If (scn.text = "`r`n" || scn.text = "`n") ; when hitting ENTER in a block comment
-            ; && (ctl.GetStyle(scn.pos-1)=44 && ctl.GetStyle(scn.pos+scn.length)=44)
-            ; && !(_ugh_pos := RegExMatch(_line_txt,cChar " ?.*$")) { ; check and make sure it isn't a regular comment
-                ; s.Start(scn.pos), s.Set(scn.length,44)
-                ; return
-            ; } Else If (_ugh_pos) && (ctl.GetStyle(ctl.PosRelative(startPos,_ugh_pos-1))!=44) {
-                ; s.Start(scn.pos), s.Set(scn.length,44) ; still checking it's not a regular comment
-                ; return
-            ; }
-            
-            ; dbg("ugh pos: " _ugh_pos " / style: " ctl.GetChar(ctl.PosRelative(startPos,_ugh_pos-1)) " / start line: " start_line)
-            
-            If (Abs(ctl.LineBeforeInsert - ctl.CurLine) > ctl.LinesOnScreen) || (scn.updated=4 || scn.updated=8) {
-                start_line := ctl.FirstVisibleDocLine
-                end_line := start_line + ctl.LinesOnScreen
+            ; switch (curStyle) {
                 
-                _txt := "", i := start_line
-                While (i <= end_line) {
-                    _txt .= ctl.LineText(i)
-                    i++
-                }
-            } Else {
-                _txt := scn.text
-            }
-        } Else {
-            startPos := ctl.PosFromLine(start_line)
-            _txt := ctl.LineText(start_line)
-            
-            If (ctl.GetStyle(scn.pos-1)=44 && ctl.GetStyle(scn.pos+scn.length)=44) {
-                in_block_comment := true
-                
-                s.Start(scn.pos), s.Set(scn.length,44)
-                return
-            }
-        }
-        
-        rgMatch := "mS)("
-                 . "\" q "[^\" q "]+\" q
-                 . "|[\" q "]{2,2}"
-                 . "|\" q
-                 . "|[" cChar "]+ ?.*$"
-                 ; . "|" cb1 ".*?" cb2
-                 ; . "|" cb1 ".*"
-                 . "|[" bChars "]"
-                 . "|[" pChars "]"
-                 . "|0x[0-9a-fA-F]+"
-                 . "|(?<!\w)[0-9]+"
-                 ; . "|[\w]+"
-                 . "|[ \t\r\n]+"
-                 . ")"
-        
-        oy := StrSplit(_txt,"`n","`r")
-        
-        For i, _txt in oy {
-            If (ctl.StopStyling)
-                Break
-            
-            _line := start_line + (i-1)
-            ; If this.DocMap[_line+1]
-                ; continue
-            startPos := ctl.PosFromLine(_line)
-            
-            off1 := 1
-            While (off1 := RegExMatch(_txt, rgMatch, &m, off1)) { ; scn.text
-                curP := ctl.PosRelative(startPos,off1-1) ; scn.pos
-                spec_len := ctl.PosRelative(startPos,m.Len[1]) - startPos
-                
-                ; If (in_block_comment) { ; || (ctl.GetStyle(curP-1)=44 && ctl.GetStyle(curP+1)=44) {
-                    ; spec_len := ctl.PosRelative(startPos,ctl.LineLength(_line)) - startPos
+                ; case (SCINT_STRING1):
                     
-                    ; dbg("txt: " _txt " / line: " _line " / txt2: " ctl.LineText(_line))
-                    
-                    ; If RegExMatch(_txt,cb2 "$") {
-                        ; s.Start(curP), s.Set(spec_len,44) ; block comment
-                        ; in_block_comment := false
-                    ; } Else {
-                        ; s.Start(curP), s.Set(spec_len,44) ; block comment
+                    ; if ((curChar != q && curPos != endPos-1) || prevChar == escChar) {
+                        ; prevChar := curChar
+                        ; continue
                     ; }
-                    ; Break
                     
-                ; } Else 
-                If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
-                    s.Start(curP), s.Set(spec_len,43)
+                    ; this._sms(0x7F0, (style_st), 0) ;  // SCI_STARTSTYLING
+                    ; , this._sms(0x7F1, (curPos-style_st+1), this.cust.String1.ID) ;  // SCI_SETSTYLING
+                    ; , curStyle := SCINT_NONE, style_st := 0
+                    ; continue
+                    
+                ; case (SCINT_STRING2):
+                    
+                    ; if ((curChar != "'" && curPos != endPos-1) || prevChar == escChar) {
+                        ; prevChar := curChar
+                        ; continue
+                    ; }
+                    
+                    ; this._sms(0x7F0, (style_st), 0) ;  // SCI_STARTSTYLING
+                    ; , this._sms(0x7F1, (curPos-style_st+1), this.cust.String2.ID) ;  // SCI_SETSTYLING
+                    ; , curStyle := SCINT_NONE, style_st := 0
+                    ; continue
+                    
+                ; case (SCINT_COMMENT1):
                 
-                } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
-                    s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
+                    ; if (curChar = "`n") || (A_Index = chunkLen) {
+                    ;;;;;;;;;;;;;;;;;;;;;;;;; if (curChar = "`n") || (i = chunkLen) {
+                        ; this._sms(0x7F0, (style_st), 0) ;  // SCI_STARTSTYLING
+                        ; , this._sms(0x7F1, (curPos-style_st+1), this.cust.Comment1.ID) ;  // SCI_SETSTYLING
+                        ; , curStyle := SCINT_NONE, style_st := 0
+                        
+                    ; }
+                    
+                ; case (SCINT_COMMENT2):
+                    
+                    ; com2b_test := SubStr(docTextRange, A_Index, strLen(com2b))
+                    ;;;;;;;;;;;;;;;;;;;;;;;;; com2b_test := this.sub_str(docTextRange, i, strLen(com2b))
+                    
+                    ; if (com2b = com2b_test) {
+                        ; this._sms(0x7F0, (style_st), 0) ;  // SCI_STARTSTYLING
+                        ; , this._sms(0x7F1, (curPos-style_st+strlen(com2b)), this.cust.Comment2.ID) ;  // SCI_SETSTYLING
+                        ; , curStyle := SCINT_NONE, style_st := 0
+                        
+                    ; }
+                    
+                ; case (SCINT_NONE):
                 
-                ; } Else if RegExMatch(m[1],"mS)^" cb1 ".*?" cb2) { ; block comments - one line
-                    ; s.Start(curP), s.Set(spec_len,44)
-                
-                ; } Else if RegExMatch(m[1],"S)^" cb1 ".*") {
-                    ; in_block_comment := true
-                    ; s.Start(curP), s.Set(ctl.LineLength(_line),44) ; spec_len
-                    ; Break
-                
-                } Else If RegExMatch(m[1],"S)^[" bChars "]") {
-                    If (ctl.GetStyle(curP) != 40)
-                        s.Start(curP), s.Set(1,41) ; unmatched brace
+                    ; com1_test := SubStr(docTextRange, A_Index, strLen(com1))
+                    ; , com2a_test := SubStr(docTextRange, A_Index, strLen(com2a))
                     
-                    If ((bPos := ctl.Brace.Match(curP)) > -1) && (ctl.GetStyle(bPos) = 41)
-                        s.Start(bPos), s.Set(1,40), s.Start(curP), s.Set(1,40)   ; matching braces
+                    ;;;;;;;;;;;;;;;;;;;;;;;;; com1_test := this.sub_str(docTextRange, i, strLen(com1))
+                    ;;;;;;;;;;;;;;;;;;;;;;;;; , com2a_test := this.sub_str(docTextRange, i, strLen(com2a))
                     
-                } Else If RegExMatch(m[1],"S)^[" pChars "]") { ; syntax punctuation (operators, separators, etc)
-                    s.Start(curP), s.Set(1,42)
+                    ; if (curChar = q) {
+                        ; curStyle := SCINT_STRING1, style_st := curPos
+                        
+                    ; } else if (curChar = "'") {
+                        ; curStyle := SCINT_STRING2, style_st := curPos
                     
-                } Else If RegExMatch(m[1],"S)^0x[0-9a-fA-F]+") {
-                    s.Start(curP), s.Set(m.Len[1],45)
+                    ;;;;;;;;;;;;;;;;;;;;;;;;; } else if (InStr(docTextRange, com1,, ahk_pos) = ahk_pos) {
+                    ; } else if (com1 = com1_test) {
+                        ; curStyle := SCINT_COMMENT1, style_st := curPos
                     
-                } Else if RegExMatch(m[1],"S)^(?<!\w)[0-9]+") {
-                    s.Start(curP), s.Set(m.Len[1],45)
+                    ; } else if (com2a = com2a_test) {
+                        ; curStyle := SCINT_COMMENT2, style_st := curPos
+                        
+                    ; } else if (instr(this.Brace.Chars, curChar)) {
+                        ; this._sms(0x7F0, (curPos), 0) ;  // SCI_STARTSTYLING
+                        ; , this._sms(0x7F1, 1, this.cust.Brace.ID) ;  // SCI_SETSTYLING
+                        
+                    ; }
                     
-                } Else If (m[1] = q) {
-                    s.Start(curP), s.Set(1,43)
-                    
-                }
-                ; Else If RegExMatch(m[1],"S)(?:^[ \t\r\n]+)") {
-                    ; s.Start(curP), s.Set(m.Len[1],32)
-                    
-                ; }
-                
-                off1 += m.Len[1]
-            }
+            ; } ; // switch statement
             
-            ctl.DocMap[_line+1] := true
-        }
+        ; }
         
-        ; 34 ; brace highlight
-        ; 35 ; brace bad highlight
+    ; }
+    
+    ChunkColoring(scn) { ; the DLL -- avg = 0.68 secs
+        ; dbg("BraceInit")
         
-        ; 40 ; matched brace color
-        ; 41 ; unmatched brace color
-        ; 42 ; punct color
-        ; 43 ; string color
-        ; 44 ; comment
-        ; 45 ; numbers
+        buf := (A_PtrSize=8) ? Buffer(80,0) : Buffer(52,0)
+        NumPut("UInt", scn.pos, "UInt", scn.length, "UInt", this.CurLine, "UInt", scn.linesAdded, buf)
+        
+        NumPut("UChar", this.cust.String1.ID, buf, 16)
+        NumPut("UChar", this.cust.String2.ID, buf, 17)
+        NumPut("UChar", this.cust.Comment1.ID, buf, 18)
+        NumPut("UChar", this.cust.Comment2.ID, buf, 19)
+        NumPut("UChar", this.cust.Brace.ID, buf, 20)
+        NumPut("UChar", this.cust.BraceHBad.ID, buf, 21)
+        NumPut("UChar", this.cust.Punct.ID, buf, 22)
+        NumPut("UChar", this.cust.Number.ID, buf, 23)
+        
+        braceStr := Buffer(StrPut(this.Brace.Chars,"UTF-8"),0)
+        StrPut(this.Brace.Chars,braceStr,"UTF-8")
+        NumPut("UPtr", braceStr.ptr, buf, 24)
+        
+        ; dbg("line comment len: " StrPut(this.SyntaxCommentLine,"UTF-8"))
+        
+        comment1 := Buffer(StrPut(this.SyntaxCommentLine,"UTF-8"),0)
+        StrPut(this.SyntaxCommentLine,comment1,"UTF-8")
+        NumPut("UPtr", comment1.ptr, buf, (A_PtrSize=8)?32:28)
+        
+        comment2a := Buffer(StrPut(this.SyntaxCommentBlockA,"UTF-8"),0)
+        StrPut(this.SyntaxCommentBlockA,comment2a,"UTF-8")
+        NumPut("UPtr", comment2a.ptr, buf, (A_PtrSize=8)?40:32)
+        
+        comment2b := Buffer(StrPut(this.SyntaxCommentBlockB,"UTF-8"),0)
+        StrPut(this.SyntaxCommentBlockB,comment2b,"UTF-8")
+        NumPut("UPtr", comment2b.ptr, buf, (A_PtrSize=8)?48:36)
+        
+        escapeChar := Buffer(StrPut(this.SyntaxEscapeChar,"UTF-8"),0)
+        StrPut(this.SyntaxEscapeChar,escapeChar,"UTF-8")
+        NumPut("UPtr", escapeChar.ptr, buf, (A_PtrSize=8)?56:40)
+        
+        punctChar := Buffer(StrPut(this.SyntaxPunctChars,"UTF-8"),0)
+        StrPut(this.SyntaxPunctChars,punctChar,"UTF-8")
+        NumPut("UPtr", punctChar.ptr, buf, (A_PtrSize=8)?64:44)
+        
+        NumPut("UPtr", this.hwnd, buf, (A_PtrSize=8)?72:48)
+        
+        pos2 := DllCall("CustomLexer\ChunkColoring","UPtr",buf.ptr)
+        
+        ; dbg("ChunkColoring result: " pos2)
     }
-
-/* testing
-1234
-*/
-
-; var := "; " /* blah */
-
-; big test test!
-
-    StylingRoutine2(scn) { ; SC_StyleNeeded event only ; disable StylingRoutine() and DeleteRoutine() if using this
-        Static ctl := this ; this is temporary
-        Static s := ctl.Styling
-             , q := Chr(34)
+    
+    DeleteRoutine(scn) { ; the DLL -- avg = 0.68 secs
         
-        startPos := ctl.Styling.Last
+        braceStr := Buffer(StrPut(this.Brace.Chars,"UTF-8"),0)
+        StrPut(this.Brace.Chars,braceStr,"UTF-8")
         
-        ; dbg("styling last: " ctl.Styling.Last)
-        
-        _line := ctl.LineFromPos(startPos)
-        startPos := ctl.PosFromLine(_line)
-        _txt := ctl.LineText(_line)
-        
-        bChars := RTrim(RegExReplace(ctl.Brace.Chars,"","\"),"\")       ; prep strings for regex
-        pChars := RTrim(RegExReplace(ctl.SyntaxPunctChars,"","\"),"\")  ; scn props: text, length, linesAdded, pos
-        cChar  := RTrim(RegExReplace(ctl.SyntaxCommentLine,"","\"),"\")
-        cBlock := StrSplit(RegExReplace(ctl.SyntaxCommentBlock,"","\")," ")
-        
-        rgMatch := "mS)([" bChars "]|[" pChars "]|0x[0-9a-fA-F]+|(?<!\w)[0-9]+|\" q "[^" q "]+\" q "|[\" q "]+|\" q "|[" cChar "]+ ?.*$|[ \t\r\n]+)"
-        
-        off1 := 1
-        While (off1 := RegExMatch(_txt, rgMatch, &m, off1)) { ; scn.text
-            ; dbg("off1: " off1)
-            curP := ctl.PosRelative(startPos,off1-1) ; scn.pos
-            spec_len := ctl.PosRelative(startPos,m.Len[1]) - startPos
-            
-            If RegExMatch(m[1],"S)^[" bChars "]") {
-                ; dbg("brace: curP: " curP " / str: " m[1] " / len: " m.Len[1])
+        pos2 := DllCall("CustomLexer\DeleteRoutine","UInt", scn.pos
+                                                   ,"UInt", (scn.pos + scn.length)
+                                                   ,"Int", this.cust.Brace.ID
+                                                   ,"Int", this.cust.BraceHBad.ID
+                                                   ,"UPtr", braceStr.ptr)
                 
-                If (ctl.GetStyle(curP) != 40)
-                    s.Start(curP), s.Set(1,41) ; unmatched brace
-                
-                If ((bPos := ctl.Brace.Match(curP)) > -1) && (ctl.GetStyle(bPos) = 41) {
-                    ; dbg("brace2: curP: " curP " / str: " m[1] " / len: " m.Len[1] " / bPos: " bPos)
-                    s.Start(bPos), s.Set(1,40), s.Start(curP), s.Set(1,40)   ; matching braces
-                }
-                
-            } Else If RegExMatch(m[1],"S)^[" pChars "]") { ; syntax punctuation (operators, separators, etc)
-                s.Start(curP), s.Set(1,42)
-            
-            } Else If RegExMatch(m[1],"S)^0x[0-9a-fA-F]+") {
-                s.Start(curP), s.Set(m.Len[1],45)
-            
-            } Else if RegExMatch(m[1],"S)^(?<!\w)[0-9]+") {
-                s.Start(curP), s.Set(m.Len[1],45)
-            
-            } Else If (m[1] = q) {
-                s.Start(curP), s.Set(1,43)
-                
-            } Else If RegExMatch(m[1],"S)^\" q "[^" q "]*\" q) {
-                s.Start(curP), s.Set(spec_len,43)
-            
-            } Else If RegExMatch(m[1],"mS)^[\" cChar "]+ ?.*$") { ; comments
-                s.Start(curP), s.Set(spec_len,44) ; dbg("comment: curP: " curP " / str: " m[1] " / len: " m.Len[1])
-            
-            } Else If RegExMatch(m[1],"S)(?:^[ \t\r\n]+)") {
-                s.Start(curP), s.Set(m.Len[1],32)
-                
-            }
-            
-            off1 += m.Len[1]
-        }
-        
-        ; 34 ; brace highlight
-        ; 35 ; brace bad highlight
-        
-        ; 40 ; matched brace color
-        ; 41 ; unmatched brace color
-        ; 42 ; punct color
-        ; 43 ; string color
-        ; 44 ; comment
-        ; 45 ; numbers
+        dbg("DeleteRoutine result: " pos2)
     }
     
     DefaultOpt() {
-        this.UseDirect := true
+        ; this.UseDirect := true
         
         this.Wrap.Mode := 1
         this.EndAtLastLine := false ; allow scrolling past last line
@@ -831,45 +749,136 @@ class Scintilla extends Gui.Custom {
     }
 
     DefaultTheme() {
-        this.Caret.LineBack := 0x151515  ; active line (with caret)
+        this.cust.Caret.LineBack := 0x151515  ; active line (with caret)
         
-        s := this.Style ; style 32 is default, isolate style obj (to be lazy!)
-        s.Back := 0x080808 ; global background
-        s.Fore := 0xAAAAAA ; global text color
-        s.Font := "Consolas" ; main text font
-        s.Size := 12
-        s.ClearAll()         ; apply style 32
+        this.cust.Editor.Back := 0x080808
+        this.cust.Editor.Fore := 0xAAAAAA
+        this.cust.Editor.Font := "Consolas"
+        this.cust.Editor.Size := 12
         
-        s.ID := 33 ; Style 33, use this for number margin
-        s.Back := 0x202020 ; 0x202020
-        s.Fore := 0xAAAAAA
+        this.Style.ClearAll() ; apply style 32
         
-        this.Caret.Fore := 0x00FF00 ; change caret color
-        this.Selection.BackColor := 0x550000 ; current line background color
+        this.cust.Margin.Back := 0x202020
+        this.cust.Margin.Fore := 0xAAAAAA
         
-        s.ID := 34 ; brace highlight
-        s.Fore := 0x00FF00
+        this.cust.Caret.Fore := 0x00FF00
+        this.cust.Selection.Back := 0x550000
         
-        s.ID := 35 ; brace bad highlight
-        s.Fore := 0xFF0000
+        ; s.ID := 34 ; brace highlight
+        ; s.Fore := 0x00FF00
         
-        s.ID := 40 ; matched brace color
-        s.Fore := 0x8080FF
+        ; s.ID := 35 ; brace bad highlight
+        ; s.Fore := 0xFF0000
         
-        s.ID := 41 ; unmatched brace color
-        s.Fore := 0xFF0000
+        this.cust.Brace.Fore     := 0x8080FF ; basic brace color
+        this.cust.BraceH.Fore    := 0x00FF00 ; brace color highlight
+        this.cust.BraceHBad.Fore := 0xFF0000 ; brace color bad light
+        this.cust.Punct.Fore     := 0xFF8040
+        this.cust.String1.Fore   := 0x555555
+        this.cust.String2.Fore   := 0x767676
         
-        s.ID := 42 ; punct color
-        s.Fore := 0xFF8040
+        ; msgbox this.cust.String2.ID
         
-        s.ID := 43 ; string color
-        s.Fore := 0x555555
-        
-        s.ID := 44 ; comment
-        s.Fore := 0x008800
+        this.cust.Comment1.Fore  := 0x008800 ; keeping it the same for now
+        this.cust.Comment2.Fore  := 0x008800
+        this.cust.Number.Fore    := 0xFFFF00
+    }
     
-        s.ID := 45 ; numbers
-        s.Fore := 0xFFFF00
+    class cust {
+        __New(sup) {
+            this.Number := Scintilla.cust.subItem(sup,45)
+            this.Comment1 := Scintilla.cust.subItem(sup,44)
+            this.Comment2 := Scintilla.cust.subItem(sup,47)
+            this.String1 := Scintilla.cust.subItem(sup,43)
+            this.String2 := Scintilla.cust.subItem(sup,46)
+            this.Punct := Scintilla.cust.subItem(sup,42)
+            this.BraceH := Scintilla.cust.subItem(sup,34)
+            this.BraceHBad := Scintilla.cust.subItem(sup,41)
+            this.Brace := Scintilla.cust.subItem(sup,40)
+            this.Selection := sup.Selection
+            this.Caret := sup.Caret
+            this.Margin := Scintilla.cust.subItem(sup,33)
+            this.Editor := Scintilla.cust.subItem(sup,32)
+        }
+        
+        class subItem {
+            ID := 0, sup := ""
+            
+            __New(sup,ID) {
+                this.sup := sup, this.ID := ID
+            }
+            
+            Fore {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Fore
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Fore := value
+                }
+            }
+            Back {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Back
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Back := value
+                }
+            }
+            Font {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Font
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Font := value
+                }
+            }
+            Size {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Size
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Size := value
+                }
+            }
+            Italic {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Italic
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Italic := value
+                }
+            }
+            Underline {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Underline
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Underline := value
+                }
+            }
+            Bold {
+                get {
+                    this.sup.Style.ID := this.ID
+                    return this.sup.Style.Bold
+                }
+                set {
+                    this.sup.Style.ID := this.ID
+                    this.sup.Style.Bold := value
+                }
+            }
+        }
     }
     
     ; =========================================================================================
@@ -1305,6 +1314,13 @@ class Scintilla extends Gui.Custom {
             If (!this.DirectPtr And value=true) ; store in ctl, call once per control
                 this._DirectPtr  := SendMessage(0x889, 0, 0, this.hwnd) ; SCI_GETDIRECTPOINTER
             
+            ; If (value)
+                ; Scintilla.scint_base.Prototype._sms := Scintilla.scint_base.Prototype.__sms_slow
+            ; else
+                ; Scintilla.scint_base.Prototype._sms := Scintilla.scint_base.Prototype.__sms_fast
+            
+            ; this.init_classes()
+            
             this._UseDirect := value
         }
     }
@@ -1316,11 +1332,31 @@ class Scintilla extends Gui.Custom {
     class Brace extends Scintilla.scint_base {
         Chars := "[]{}()<>"
         
+        BadColor {
+            get {
+                this.Style.ID := 35
+                return this.Style.Fore
+            }
+            set {
+                this.Style.ID := 35
+                this.Style.Fore := value
+            }
+        }
         BadLight(in_pos:=-1) {              ; ctl.Brace.BadLight() <-- with no value, will clear badlight
             return this._sms(0x930, in_pos) ; SCI_BRACEBADLIGHT
         }
         BadLightIndicator(on_off, indicator_int) {
             return this._sms(0x9C3, on_off, indicator_int) ; SCI_BRACEBADLIGHTINDICATOR
+        }
+        Color {
+            get {
+                this.Style.ID := 34
+                return this.Style.Fore
+            }
+            set {
+                this.Style.ID := 34
+                this.Style.Fore := value
+            }
         }
         Highlight(pos_A, pos_B) {
             return this._sms(0x92F, pos_A, pos_B) ; SCI_BRACEHIGHLIGHT
@@ -1359,8 +1395,8 @@ class Scintilla extends Gui.Custom {
             return this._sms(0x7E9, pos)            ; SCI_GOTOPOS
         }
         LineBack { ; SC_ELEMENT_CARET_LINE_BACK = 0x32 (50)
-            get => this._sms(0x32)                          ; SCI_GETELEMENTCOLOUR
-            set => this._sms(0x32, this._RGB_BGR(value))    ; SCI_GETELEMENTCOLOUR
+            get => this._sms(0xAC2, 0x32)                          ; SCI_GETELEMENTCOLOUR
+            set => this._sms(0xAC1, 0x32, this._RGB_BGR(value))    ; SCI_SETELEMENTCOLOUR
         }
         ; LineBack {                                          ; color
             ; get => this._RGB_BGR(this._sms(0x831))          ; SCI_GETCARETLINEBACK
@@ -1445,6 +1481,10 @@ class Scintilla extends Gui.Custom {
     }
     
     class Edge extends Scintilla.scint_base {
+        __New(ctl) {
+            this.ctl := ctl
+            this.Multi := Scintilla.Edge.Multi(ctl)
+        }
         Add(column, color) {
             return this._sms(0xA86, column, color) ; SCI_MULTIEDGEADDLINE
         }
@@ -1465,6 +1505,18 @@ class Scintilla extends Gui.Custom {
         Mode {                              ; int 0 = NONE, 1 = LINE, 2 = BACKGROUND, 3 = MULTI LINE
             get => this._sms(0x93A)         ; SCI_GETEDGEMODE
             set => this._sms(0x93B, value)  ; SCI_SETEDGEMODE
+        }
+        
+        class Multi extends Scintilla.scint_base {
+            Add(pos, color) {       ; SCI_MULTIEDGEADDLINE
+                return this._sms(0xA86, pos, this._RGB_BGR(color))
+            }
+            ClearAll() {            ; SCI_MULTIEDGECLEARALL
+                return this._sms(0xA87)
+            }
+            GetColumn(which) {      ; SCI_GETMULTIEDGECOLUMN
+                return this._sms(0xABD, which) ; 0-based ... like everything else!
+            }
         }
     }
     
@@ -1799,17 +1851,17 @@ class Scintilla extends Gui.Custom {
             Else
                 return this._sms(0xA16, sel, pos)   ; SCI_SETSELECTIONNANCHORVIRTUALSPACE
         }
-        Back(bool, color) {
-            this._BackEnabled := bool,    this._BackColor := color
-            return this._sms(0x814, bool, this._RGB_BGR(color)) ; SCI_SETSELBACK
+        ; Back(bool, color) {
+            ; this._BackEnabled := bool,    this._BackColor := color
+            ; return this._sms(0x814, bool, this._RGB_BGR(color)) ; SCI_SETSELBACK
+        ; }
+        Back {              ; previously BackColor
+            get => (0xFF000000 & this._BackColor) ? Format("0x{:08X}", this._BackColor) : Format("0x{:06X}", this._BackColor)
+            set => this._sms(0x814, this._BackEnabled, this._RGB_BGR(this._BackColor := value)) ; SCI_SETSELBACK
         }
         BackEnabled {       ; boolean
             get => this._BackEnabled
             set => this._sms(0x814, (this._BackEnabled := value), this._RGB_BGR(this._BackColor)) ; SCI_SETSELBACK
-        }
-        BackColor {         ; color
-            get => (0xFF000000 & this._BackColor) ? Format("0x{:08X}", this._BackColor) : Format("0x{:06X}", this._BackColor)
-            set => this._sms(0x814, this._BackEnabled, this._RGB_BGR(this._BackColor := value)) ; SCI_SETSELBACK
         }
         CaretPos(pos:="", sel:=0) {                 
             If (pos="")                             
@@ -2160,6 +2212,9 @@ class Scintilla extends Gui.Custom {
             flags := (flags!="")?flags:this.Flags
             return this._PutStr(0x940, flags, txt)  ; SCI_SEARCHPREV
         }
+        Range(start, end) {
+            return this._sms(0xA7E, start, end) ; SCI_SETTARGETRANGE
+        }
         Replace(txt:="") {
             return this._PutStr(0x892, StrLen(txt), txt) ; SCI_REPLACETARGET
         }
@@ -2170,9 +2225,6 @@ class Scintilla extends Gui.Custom {
         }
         Selection() {
             return this._sms(0x8EF)         ; SCI_TARGETFROMSELECTION
-        }
-        SetRange(start, end) {
-            return this._sms(0xA7E, start, end) ; SCI_SETTARGETRANGE
         }
         Start {                             ; position values
             get => this._sms(0x88F)         ; SCI_GETTARGETSTART
@@ -2320,8 +2372,10 @@ class Scintilla extends Gui.Custom {
             return (reverse) ? out_str : StrGet(buf, "UTF-8")
         }
         _PutStr(msg, wParam:=0, str:="") { ; pass a string with NULL terminator
-            buf := Buffer(StrLen(str)+1,0)
+            str_size := StrPut(str,"UTF-8")
+            buf := Buffer(str_size,0)
             StrPut(str,buf,"UTF-8")
+            
             return this._sms(msg, wParam, buf.ptr)
         }
         _SetStr(msg, wParam:=0, str:="") { ; pass a string without NULL terminator
@@ -2339,17 +2393,37 @@ class Scintilla extends Gui.Custom {
             Else
                 return Format("0x{:06X}",(_in & 0xFF) << 16 | (_in & 0xFF00) | (_in >> 16))
         }
+        
+        ; __sms_slow(msg, wParam:=0, lParam:=0) {
+            ; obj := (this.__Class = "Scintilla") ? this : this.ctl
+            ; return r := SendMessage(msg, wParam, lParam, obj.hwnd)
+        ; }
+        
+        ; __sms_fast(msg, wParam:=0, lParam:=0) {
+            ; obj := (this.__Class = "Scintilla") ? this : this.ctl
+            ; r := DllCall(obj.DirectStatusFunc, "UPtr", obj.DirectPtr, "UInt", msg, "Int", wParam, "Int", lParam, "Int*", &status:=0)
+            ; obj._StatusD := status
+            ; return r ; every sub-class will have this element
+        ; }
+        
+        ; _sms(msg, wParam:=0, lParam:=0) {
+        
+        ; }
+        
         _sms(msg, wParam:=0, lParam:=0) {
             obj := (this.__Class = "Scintilla") ? this : this.ctl
-            status := 0
-            If (obj.UseDirect)
-                r := DllCall(obj.DirectStatusFunc, "UInt", obj.DirectPtr, "UInt", msg, "Int", wParam, "Int", lParam, "Int*", &status)
-                ; r := DllCall(obj.DirectFunc, "UInt", obj.DirectPtr, "UInt", msg, "Int", wParam, "Int", lParam)
-            Else
+            ; status := 0
+            If (obj.UseDirect) {
+                r := DllCall(obj.DirectStatusFunc, "UPtr", obj.DirectPtr, "UInt", msg, "Int", wParam, "Int", lParam, "Int*", &status:=0)
+                obj._StatusD := status
+                ; dbg("Direct Func Status")
+            } Else {
                 r := SendMessage(msg, wParam, lParam, obj.hwnd)
-            obj._StatusD := status
+            }
+            
             return (obj.LastCode := r) ; every sub-class will have this element
         }
+        
         _GetRect(_ptr, offset:=0) {
             a := []
             Loop 4
@@ -2460,6 +2534,9 @@ class Scintilla extends Gui.Custom {
                     ; return ""                   ; ?? only "asdf" was pasted...
             }
         }
+        textPtr {
+            get => NumGet(this.ptr, Scintilla.scn_text, "UPtr")
+        }
         length {
             get => NumGet(this.ptr, Scintilla.scn_length, "Int")
         }
@@ -2514,9 +2591,15 @@ class Scintilla extends Gui.Custom {
     }
 }
 
+
 dbg(_in) {
     Loop Parse _in, "`n", "`r"
         OutputDebug "AHK: " A_LoopField
+}
+
+
+myFunc() {
+
 }
 
 ; =================================================================================
