@@ -25,11 +25,13 @@ The main method that uses these is: `wm_messages(wParam, lParam, msg, hwnd)`.
 
 There are method wrappers of the same function names that employ these DLL functions.
 
-I've used the following file as a test (thanks to marius - aka robodesign).  This script is 2.16 MB in size and loads currently in less than a second (usually).
+I've used the following file as a test (thanks to marius - aka robodesign).  This script is 2.16 MB in size and loads with syntax highlighting in currently just over a second (1.078 - 1.218 secs on my machine).
 
 Test document link (this doc is included as `test-script.ahk`):
 
 https://github.com/marius-sucan/Quick-Picto-Viewer/blob/master/quick-picto-viewer.ahk
+
+NOTE:  If you use LayoutCaching, you may get occasional slower load times (up to 14 seconds on `test-script.ahk` according to my tests).  It's a bit random, but this never seems to happen with LayoutCache disabled.  LayoutCache is mostly only useful if you need smoother performance when resizing the window (ie. not maximized).  You will still get smooth scrolling with LayoutCache disabled.
 
 # Documentation
 
@@ -38,11 +40,14 @@ Making the documentation will be a lengthy work in progress...
 For now all I can give is a general outline and some guidelines:
 
 * All numerical IDs are zero-based.  So position numbers, line numbers, column numbers, margin numbers, style numbers, selection numbers, etc., start at zero.
-* I tried to keep all like categories of methods and properties together as they are listed on the Scintilla Documentation site, but this is not always the case.  Generally I'm just trying to keep concepts in logical categories (sub classes).  This is a bit of a process as I discover other functions, some of which serve a better purpose in a different category than originally listed in the Scintilla Docs.
-* Not all Scintilla functions will make it into this library.  Basically, functions that appear to duplicate another function's result with little or no benefit won't be added, unless there is a good reason, in which case it may get a different name to more appropriately describe what it is best used for.
-* I will always append a comment for a property or method that makes use of a particular `SCI_...` message name.
 
-Below I will outline major features or major parts of the structure.
+* I tried to keep all like categories of methods and properties together as they are listed on the Scintilla Documentation site, but this is not always the case.  Generally I'm just trying to keep concepts in logical categories (sub classes).  This is a bit of a process as I discover other functions, some of which serve a better purpose in a different category than originally listed in the Scintilla Docs.
+
+* Not all Scintilla functions will make it into this library.  Basically, functions that appear to duplicate another function's result with little or no benefit won't be added, unless there is a good reason, in which case it may get a different name to more appropriately describe what it is best used for.
+
+* I will always append a comment for a property or method that makes use of a particular `SCI_...` message name so it should be easy to see what my script is doing while refrencing the Scintilla documentation.
+
+Below I will outline major features or major parts of the script class structure.
 
 -----
 
@@ -122,15 +127,46 @@ Set property values as if you were using the Style subclass:
 ```
 the old way:
 
-ctl.Style.ID := 32 ; specify the ID before making changes
+ctl.Style.ID    := 32       ; specify the ID before making changes
 ctl.Style.Color := 0x00FF00 ; set a property
 
 the new way:
 
 ctl.cust.number.Color := 0x00FF00
+
+
+NOTE:  The "old way" is still necessary when changing other user-defined styles,
+and when applying style settings to other margins that are NOT the typical number
+margin (which is usually margin 0).  Margin 0 can still be redefined to something
+else, and if you choose to do so, you will want to use the "old way" for maximum
+flexibility and access to all capabilities provided by the Scintilla library. 
 ```
 
+### Margins, Styles, EOL Annotations, and Markers
+
+For margins, styles, EOL Annotations, and Markers, set the "active ID" like so:
+
+```
+obj.Style.ID := 34 ; make future calls to obj.Style.* apply to style #34
+
+obj.Margin.ID := 2 ; make future calls to obj.Margin.* apply to margin #2
+
+obj.EOLAnn.Line := 3 ; make future calls to obj.EOLAnn.* apply to line #3
+
+obj.Marker.num := 4 ; make future calls to obj.Marker.* apply to marker #4
+                    ; NOTE: All methods in the Marker subclass also take a markerNum parameter.
+                    ; If you don't specify a markerNum, then the specified num is used.
+```
+
+Once you set the "active ID", future calls to these sub-classes will apply to the most recently set "ID" or "Line", or "marker number" respectively.
+
 # Current Changes
+
+2021/08/26
+
+* disabled LayoutCache in the example for more consistent fast loading
+* added a mechanism to disable unnecessary document parsing when loading
+* reworked README and consolidated some docs
 
 2021/08/25
 
@@ -212,28 +248,9 @@ Now calculation of number margin is more dynamic based on font size
 * moved some Scintilla control customizations out of main class into a func in the example
 * Added .Lookup() and .GetFlags() static methods for easier interal workings
 
-## Margins, Styles, EOL Annotations
-
-For margins and styles, set the active "ID" like so:
-
-```
-obj.Style.ID := 34 ; make future calls to obj.Style.* apply to style #34
-
-obj.Margin.ID := 2 ; make future calls to obj.Margin.* apply to margin #2
-
-obj.EOLAnn.Line := 3 ; make future calls to obj.EOLAnn.* apply to line #3
-
-obj.Marker.num := 4 ; make future calls to obj.Marker.* apply to marker #4
-                    ; NOTE: All methods in the Marker subclass also take a markerNum parameter.
-                    ; If you don't specify a markerNum, then the specified .num is used.
-```
-
-I will probably continue to treat these types of functions this way for simplicity and consistency.  I find it to be working quite well in my tests, and I find it somewhat improves the readability of the code as well.
-
 ## To-Do List
 
 I plan to still add the following categories / subclasses listed below.  A crossed out item indicates that category of functions has been added.
-
 
 * Annotations
 * AutoComplete and "Element Colors"

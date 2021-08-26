@@ -17,7 +17,7 @@ ctl := g.AddScintilla("vMyScintilla w1000 h500 DefaultOpt DefaultTheme")
 ; ======================================================================
 
 ; ctl.UseDirect := true ; the DLL uses the Direct Ptr for now
-ctl.Wrap.LayoutCache := 3 ; speeds up window resize on large docs
+; ctl.Wrap.LayoutCache := 3 ; speeds up window resize on large docs, but sometimes causes slower load times on large documents
 
 ; ======================================================================
 ; items that should be set by the user
@@ -52,8 +52,17 @@ ctl.CustomSyntaxHighlighting := true ; turning this off turns off syntax highlig
 
 ; ctl.Styling.Idle := 3 ; do NOT set this when using my syntax highlighting.  My syntax highlighting works differently.
 
-sFile := A_ScriptDir "\" A_ScriptName ; this script
-; sFile := "test-script.ahk" ; 2.16 MB
+; ======================================================================
+; Set this to prevent unnecessary parsing and improve load time.  While
+; editing the document additional parsing must happen in order to
+; properly color the various elements of the document correctly when
+; adding/deleting text.  This value will automatically be set to 0
+; after loading a document.
+; ======================================================================
+ctl.loading := 1
+
+; sFile := A_ScriptDir "\" A_ScriptName ; this script
+sFile := "test-script.ahk" ; 2.16 MB
 
 size := FileGetSize(sFile)
 ptr := ctl.Doc.Create(size+100)
@@ -91,9 +100,7 @@ F3::{
 }
 
 F4::{
-    global ctl
-    ctl.Tab.Use := false ; use spaces instad of tabs
-    ctl.Tab.Width := 4 ; number of spaces for a tab
+    ExitApp
 }
 
 ctl_callback(ctl, scn) { ; callback for wm_notify messages
@@ -325,7 +332,7 @@ class Scintilla extends Gui.Custom {
         ctl.msg_cb := ObjBindMethod(ctl, "wm_messages") ; Register wm_notify messages
         OnMessage(0x4E, ctl.msg_cb)
         
-        ctl._ScreenStyling := 0 ; init for styling timer
+        ctl.loading := 0        ; set this to 1 when loading a document
         ctl.callback := ""      ; setting some main properties
         ctl.state := ""         ; used to determine input "mode", ie. string, comment, etc.
         ctl._StatusD := 0
@@ -516,6 +523,8 @@ class Scintilla extends Gui.Custom {
         
         If (this.callback)
             f := this.callback(scn)
+        
+        this.loading := 0 ; shut off document loading indicator
     }
     
     MarginWidth(margin:=0, style:=33, scn:="") {
@@ -703,7 +712,9 @@ class Scintilla extends Gui.Custom {
         
         NumPut("UPtr", this.hwnd, buf, (A_PtrSize=8)?72:48)
         
-        pos2 := DllCall("CustomLexer\ChunkColoring","UPtr",buf.ptr)
+        pos2 := DllCall("CustomLexer\ChunkColoring","UPtr",buf.ptr,"Int",this.loading)
+        
+        this.loading := 0
         
         ; dbg("ChunkColoring result: " pos2)
     }

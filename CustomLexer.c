@@ -279,7 +279,7 @@ __declspec(dllimport) unsigned int DeleteRoutine(unsigned int startPos
 
 
 
-__declspec(dllimport) unsigned int ChunkColoring(struct scint *data) { // experimenting
+__declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading) { // experimenting
     
     unsigned int mPos = 0;
     
@@ -368,7 +368,8 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data) { // experi
             case (SCINT_COMMENT1):
                 
                 if (*curChar == '\n' || curPos == (docLength-1)) {
-                    DelBrace(style_st, curPos+1, data->braceStyle, data->braceBadStyle, data->braces);
+                    if (loading == 0) // do NOT do this when loading the document, unnecessary and slow
+                        DelBrace(style_st, curPos+1, data->braceStyle, data->braceBadStyle, data->braces);
                     
                     Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
                     Call(0x7F1, (curPos-style_st+1), (LPARAM) data->commentStyle1);  // SCI_SETSTYLING
