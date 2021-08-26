@@ -506,15 +506,13 @@ class Scintilla extends Gui.Custom {
                 this.DeleteRoutine(scn)
             Else if (scn.modType & modType.DeleteText)
                 this.ChunkColoring(scn) ; redo coloring after delete
-        }
         
-        
-        
-        If (scn.wmmsg_txt = "StyleNeeded") { ; works but doesn't perform well with large pastes
-            ; ticks := A_TickCount
-            this.Pacify() ; pacify the StyleNeeded bit by styling the last char in the doc
-            ; dbg( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
-            
+            If (scn.wmmsg_txt = "StyleNeeded") { ; works but doesn't perform well with large pastes
+                ; ticks := A_TickCount
+                this.Pacify() ; pacify the StyleNeeded bit by styling the last char in the doc
+                ; dbg( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
+                
+            }
         }
         
         ; =========================================================================
@@ -523,8 +521,6 @@ class Scintilla extends Gui.Custom {
         
         If (this.callback)
             f := this.callback(scn)
-        
-        this.loading := 0 ; shut off document loading indicator
     }
     
     MarginWidth(margin:=0, style:=33, scn:="") {
