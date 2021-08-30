@@ -40,7 +40,8 @@ typedef long Sci_PositionCR;
 #define SCINT_NUMBER 5
 #define SCINT_BRACE 6
 #define SCINT_PUNCT 7
-
+#define SCINT_WORD 8
+#define SCINT_SPACE 9
 
 struct Sci_CharacterRange {
     Sci_PositionCR cpMin;
@@ -58,12 +59,12 @@ struct sci_ctl {
 } sci_ctl;
 
 struct scint {
-    int pos;
-    int length;
-    int line;
-    int linesAdded;
+    unsigned int pos;
+    unsigned int length;
+    unsigned int linesAdded;
+    int blank1; // for easier alignment
     
-    char strStyle1; // 7 styles
+    char strStyle1; // 8 styles
     char strStyle2;
     char commentStyle1;
     char commentStyle2;
@@ -78,8 +79,30 @@ struct scint {
     char *comment2b;
     char *escape;
     char *punct;
-    HWND hwnd;
+    char *string1;
+    char *string2;
+    char *wordChars;
 } scint;
+
+struct wordList {
+    char kw1ID;
+    char kw2ID;
+    char kw3ID;
+    char kw4ID;
+    char kw5ID;
+    char kw6ID;
+    char kw7ID;
+    char kw8ID;
+    
+    char *kwList1;
+    char *kwList2;
+    char *kwList3;
+    char *kwList4;
+    char *kwList5;
+    char *kwList6;
+    char *kwList7;
+    char *kwList8;
+} wordList;
 
 
 SciFnDirect pSciMsg; // declare direct function
@@ -88,6 +111,16 @@ SciFnDirectStatus pSciMsgStat; // declare direct function
 sptr_t directPtr = 0;
 HWND scintHwnd = 0;
 
+
+char * int_str(int iInput) {
+    static char buf[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    return itoa(iInput, buf, 10);
+}
+
+char * hex_str(int iInput) {
+    static char buf[20] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    return itoa(iInput, buf, 16);
+}
 
 // thanks to TutorialsPoint.com for making this easy to understand
 // Link: https://www.tutorialspoint.com/cprogramming/c_variable_arguments.htm
@@ -166,7 +199,19 @@ Error Codes:
 
 */
 
-
+// 2 chars = -64 thru -33
+// 3 chars = -32 thru -17
+// 4 chars = -16 thru -1
+int char_len(char ch) {
+    if (ch >= -64 && ch <= -33)
+        return 2;
+    else if (ch >= -32 && ch <= -17)
+        return 3;
+    else if (ch >= -16 && ch <= -1)
+        return 4;
+    else
+        return 1;
+}
 
 sptr_t CallStatus(unsigned int iMessage, uptr_t wParam, sptr_t lParam) {    // DirectStatus func does not work :(
     int *pStatus;                                                           // causes error 0x00000005
@@ -179,12 +224,12 @@ sptr_t Call(unsigned int iMessage, uptr_t wParam, sptr_t lParam) { // direct fun
     return pSciMsg(directPtr, iMessage, wParam, lParam);;
 }
 
-// sptr_t Call(unsigned int iMessage, uptr_t wParam, sptr_t lParam) { // direct func works!
+// sptr_t Call(unsigned int iMessage, uptr_t wParam, sptr_t lParam) { // basic SendMessage() wrapper
     // return SendMessage(scintHwnd, iMessage, wParam, lParam);;
 // }
 
-__declspec(dllimport) sptr_t Init(struct sci_ctl *data) {
-    scintHwnd = data->hwnd;
+__declspec(dllimport) sptr_t Init(HWND hwnd) {
+    scintHwnd = hwnd; // global var, used with Call() wrapper func
     
     // It appears to work, but calling pSciMsgStat() always results in error 0x00000005.
     pSciMsgStat = (SciFnDirectStatus) SendMessage(scintHwnd, 0xAD4, 0, 0); // SCI_GETDIRECTSTATUSFUNCTION
@@ -194,27 +239,26 @@ __declspec(dllimport) sptr_t Init(struct sci_ctl *data) {
     
     directPtr = (sptr_t) SendMessage(scintHwnd, 0x889, 0, 0); // SCI_GETDIRECTPOINTER
     
-    // dbg(2,"hello world asdf asdf: ", "poof");
-    
     return directPtr;
 };
 
-
-
-unsigned int DelBrace(unsigned int startPos
-                    , unsigned int endPos
-                    , int brace
-                    , int braceBad
-                    , char *braces) {
-
-    unsigned int mPos = 0;
-    unsigned int curPos = 0, style_check = 0;
-
-    unsigned int chunkLen  = endPos - startPos;
+unsigned int DelBrace(struct scint *data) { // BeforeDelete event (mostly), or right after commenting out a line
+    
     unsigned int docLength = Call(0x7D6, 0, 0); // SCI_GETLENGTH // mostly for screen styling
+    
+    if (data->length == docLength)
+        return 0;
+    
+    char buf[10];
+    
+    unsigned int mPos = 0, curPos = 0, style_check = 0;
+    unsigned int startPos = data->pos;
+    unsigned int endPos = startPos + data->length;
+    
+    unsigned int chunkLen  = endPos - startPos;
+    
     char *curChar;
     
-    // -----------------------------------------------------------------
     struct Sci_CharacterRange cr;
     struct Sci_TextRange tr;
     
@@ -231,17 +275,16 @@ unsigned int DelBrace(unsigned int startPos
     
     for (int j=0 ; j<chunkLen ; j++) {
         
-        // curChar = &docTextRange[j];
         curChar = &tr.lpstrText[j];
         curPos = startPos + j;
         
         if (curPos > (docLength-1))
             return 0;
         
-        if (strchr(braces, *curChar)) {
+        if (strchr(data->braces, *curChar)) {
         
             style_check = Call(0x7DA, curPos, 0); // SCI_GETSTYLEAT
-            if (style_check != brace) {
+            if (style_check != data->braceStyle) {
                 
                 continue;
             }
@@ -249,14 +292,13 @@ unsigned int DelBrace(unsigned int startPos
             mPos = Call(0x931, curPos, 0);
             if (mPos != -1) {
                 Call(0x7F0, mPos, 0);                       // SCI_STARTSTYLING
-                Call(0x7F1, 1, (LPARAM) braceBad);  // SCI_SETSTYLING
+                Call(0x7F1, 1, (LPARAM) data->braceBadStyle);  // SCI_SETSTYLING
                 Call(0x7F0, curPos, 0);                     // SCI_STARTSTYLING
-                Call(0x7F1, 1, (LPARAM) braceBad);  // SCI_SETSTYLING
+                Call(0x7F1, 1, (LPARAM) data->braceBadStyle);  // SCI_SETSTYLING
                 
             }
             
-            // reset last style pos checking
-            style_check = Call(0x7DA, docLength-1, 0); // SCI_GETSTYLEAT
+            style_check = Call(0x7DA, docLength-1, 0); // SCI_GETSTYLEAT // reset last style pos checking
             Call(0x7F0, docLength-1, 0);    // SCI_STARTSTYLING
             Call(0x7F1, 1, (LPARAM) style_check);    // SCI_SETSTYLING
         }
@@ -268,72 +310,112 @@ unsigned int DelBrace(unsigned int startPos
 
 }
 
-__declspec(dllimport) unsigned int DeleteRoutine(unsigned int startPos
-                                               , unsigned int endPos
-                                               , int brace
-                                               , int braceBad
-                                               , char *braces) {
-    
-    return DelBrace(startPos, endPos, brace, braceBad, braces);
+__declspec(dllimport) unsigned int DeleteRoutine(struct scint *data) { // for calling DelBrace() from outside the DLL
+    return DelBrace(data);
 }
 
+// keywords props:
+// -> kw1ID .. kw8ID
+// -> kwList1 .. kwList8
 
+char match_kw(struct wordList *keywords, char *Word, int CaseSense) {
+    
+    if (!CaseSense) {
+        for(int i=1 ; i < (strlen(Word)-1) ; i++) // convert to lowercase - need to do this dynamically
+            Word[i] = tolower(Word[i]);
+    }
+    
+    if (strstr(keywords->kwList1, Word))
+            return keywords->kw1ID;
+    
+    if (strstr(keywords->kwList2, Word))
+            return keywords->kw2ID;
+    
+    if (strstr(keywords->kwList3, Word))
+            return keywords->kw3ID;
+    
+    if (strstr(keywords->kwList4, Word))
+            return keywords->kw4ID;
 
-__declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading) { // experimenting
+    if (strstr(keywords->kwList5, Word))
+            return keywords->kw5ID;
+    
+    if (strstr(keywords->kwList6, Word))
+            return keywords->kw6ID;
+    
+    if (strstr(keywords->kwList7, Word))
+            return keywords->kw7ID;
+    
+    if (strstr(keywords->kwList8, Word))
+            return keywords->kw8ID;
+    
+    return 0;
+}
+
+__declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading, struct wordList *keywords, int CaseSense) { // it's alive!
+    
+    unsigned int docLength = Call(0x7D6, 0, 0); // SCI_GETLENGTH // mostly for screen styling
+    
+    if (docLength == 0)
+        return 0;
+    
+    if ((docLength > 1) && (Call(0x7DA, data->pos-1, 0) == data->commentStyle2)
+        && (Call(0x7DA, data->pos+data->length, 0) == data->commentStyle2)) {
+        
+        Call(0x7F0, data->pos, 0);  // SCI_STARTSTYLING
+        Call(0x7F1, data->length, (LPARAM) data->commentStyle2);  // SCI_SETSTYLING
+        return 0;
+    }
     
     unsigned int mPos = 0;
     
     array_t *braceList = new_array();
     
-    unsigned int docLength = Call(0x7D6, 0, 0); // SCI_GETLENGTH // mostly for screen styling
-    unsigned int startPos = 0, endPos = 0, startLine = 0, diff = 0, lastLine = 0, lines = 0;
+    unsigned int startPos = 0, endPos = 0, startLine = 0, diff = 0, lastLine = 0, lines = 0, charLen = 0, endLine = 0;
     
-    if (data->linesAdded) { // full chunk styling, or line styling
-    
-        startLine = Call(0x876, data->pos, 0); // SCI_LINEFROMPOSITION
-        startPos  = Call(0x877, startLine, 0); // SCI_POSITIONFROMLINE
-        
-        diff      = data->pos - startPos;
-        endPos    = startPos + data->length + diff;
-        
-    } else {
-        
-        startLine = Call(0x876, data->pos, 0); // SCI_LINEFROMPOSITION
-        startPos  = Call(0x877, startLine, 0); // SCI_POSITIONFROMLINE
-        endPos    = startPos + Call(0x92E, startLine, 0); // SCI_LINELENGTH
-
-    }
-    
-    // char buf1[10], buf2[10], buf3[10];
-    // dbg(6,"startPos: " , itoa(data->pos,buf1,10), " / endPos: ", itoa(endPos,buf2,10), " / len: ", itoa(data->length,buf3,10));
+    startLine = Call(0x876, data->pos, 0); // SCI_LINEFROMPOSITION
+    startPos  = Call(0x877, startLine, 0); // SCI_POSITIONFROMLINE
+    endLine   = Call(0x876, data->pos + data->length, 0);
+    endPos    = Call(0x877, endLine, 0) + Call(0x92E, endLine, 0);
     
     unsigned int chunkLen  = endPos - startPos;
+    
     char *docTextRange = (char *) Call(0xA53, startPos, endPos); // SCI_GETCHARACTERPOINTER (0x9D8) / SCI_GETRANGEPOINTER (0xA53)
     
     mPos = 0;
-    unsigned int style_st = 0, style_len = 0, style_check = 0, curPos = 0, curStyle = SCINT_NONE, x_count = 0, isWord = 0, i = 0;
+    unsigned int style_st = 0, style_len = 0, style_check = 0, curPos = 0, curStyle = SCINT_NONE, x_count = 0, i = 0;
     
-    char *style_type = "", *curChar = "", *curChar2 = "", *prevChar = "", *prevChar2 = "", *nextChar = "";
-    char *com1    = data->comment1;
-    char *com1_test = calloc(1,sizeof(char));
-    char *escChar = data->escape;
+    char *style_type = "", *curChar = "", *prevChar = "", *prevChar2 = "", *nextChar = "", *curWord = calloc(1,1);
+    char *com1       = data->comment1;
+    char *com1_test  = calloc(1,sizeof(char));
+    char *escChar    = data->escape;
     
-    char *com2a   = data->comment2a;
-    char *com2b   = data->comment2b;
+    char *com2a      = data->comment2a;
+    char *com2b      = data->comment2b;
     
     char *com2a_test = calloc(1,sizeof(char)); // Init /* block comment */ match ...
     char *com2b_test = calloc(1,sizeof(char)); // and prepare for look ahead match.
     
-    // int j = 0;
-    
-    // while (j < chunkLen) {
     for (int j=0 ; j<chunkLen ; j++) {
         
         curChar = &docTextRange[j];
         curPos = startPos + j;
         
+        // charLen = char_len(curChar[0]);
+        
+        // if (charLen > 1) {
+            // j = j + (charLen - 1);
+            // continue;
+        // }
+        
         if (curPos > (docLength-1))
             return 0;
+        
+        if (loading == 0) {
+            style_check = Call(0x7DA, curPos, 0); // SCI_GETSTYLEAT
+            if (style_check == data->commentStyle2)
+                continue;
+        }
         
         switch (curStyle) {
             
@@ -368,8 +450,10 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
             case (SCINT_COMMENT1):
                 
                 if (*curChar == '\n' || curPos == (docLength-1)) {
-                    if (loading == 0) // do NOT do this when loading the document, unnecessary and slow
-                        DelBrace(style_st, curPos+1, data->braceStyle, data->braceBadStyle, data->braces);
+                    if (loading == 0) { // do NOT do this when loading the document, unnecessary and slow
+                        data->length = chunkLen;
+                        DelBrace(data);
+                    }
                     
                     Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
                     Call(0x7F1, (curPos-style_st+1), (LPARAM) data->commentStyle1);  // SCI_SETSTYLING
@@ -402,7 +486,7 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                 if (*curChar != 'x' && !isxdigit(*curChar)) {
                     Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
                     Call(0x7F1, (curPos-style_st+1), (LPARAM) 32);  // SCI_SETSTYLING
-                    style_st = 0, i = 0, isWord = 0, curStyle = SCINT_NONE, x_count = 0;
+                    style_st = 0, i = 0, curStyle = SCINT_NONE, x_count = 0;
                     continue;
                     
                 } else if (*curChar == 'x') {
@@ -410,7 +494,7 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                     if (x_count > 1 || i != 2) {
                         Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
                         Call(0x7F1, (curPos-style_st+1), (LPARAM) 32);  // SCI_SETSTYLING
-                        style_st = 0, i = 0, isWord = 0, curStyle = SCINT_NONE, x_count = 0;
+                        style_st = 0, i = 0, curStyle = SCINT_NONE, x_count = 0;
 
                     }
                     continue;
@@ -418,11 +502,53 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                 } else if (isspace(*nextChar) || ispunct(*nextChar) || curPos == (chunkLen-1)) {
                     Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
                     Call(0x7F1, (curPos-style_st+1), (LPARAM) data->numStyle);  // SCI_SETSTYLING
-                    style_st = 0, i = 0, isWord = 0, curStyle = SCINT_NONE, x_count = 0;
+                    style_st = 0, i = 0, curStyle = SCINT_NONE, x_count = 0;
                     
                 }
                 
                 i++;
+                break;
+            
+            case (SCINT_WORD):
+                
+                nextChar = (j < (chunkLen-1)) ? &docTextRange[j+1] : "";
+                
+                if (!strchr(data->wordChars, *nextChar) && !isdigit(*nextChar)) {
+                    
+                    int wordLen = curPos-style_st+1;
+                    
+                    curWord = realloc(curWord, wordLen + 3);
+                    memcpy(curWord+1, &docTextRange[j-wordLen+1], wordLen);
+                    curWord[0] = ' ';
+                    curWord[wordLen+1] = ' ';
+                    curWord[wordLen+2] = '\0';
+                    int word_style = match_kw(keywords, curWord, CaseSense);
+                    
+                    if (word_style) {
+                        Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
+                        Call(0x7F1, (wordLen), (LPARAM) word_style);  // SCI_SETSTYLING
+                    }
+                    else if (loading == 0) {
+                        Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
+                        Call(0x7F1, (wordLen), (LPARAM) 32);  // SCI_SETSTYLING - default style
+                    }
+                    
+                    curStyle = SCINT_NONE, style_st = 0, word_style = 0;
+                }
+                
+                break;
+            
+            case (SCINT_SPACE):
+                
+                nextChar = (j < (chunkLen-1)) ? &docTextRange[j+1] : "";
+                if (!isspace(*nextChar)) {
+                    if (loading == 0) {
+                        Call(0x7F0, (style_st), 0);  // SCI_STARTSTYLING
+                        Call(0x7F1, (curPos-style_st+1), (LPARAM) 32);  // SCI_SETSTYLING - default style
+                    }
+                    curStyle = SCINT_NONE, style_st = 0;
+                }
+                
                 break;
                 
             case (SCINT_NONE):
@@ -437,21 +563,15 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                 
                 if (*curChar == '"') {
                     
-                    style_check = Call(0x7DA, curPos, 0); // SCI_GETSTYLEAT
-                    if (style_check == data->commentStyle1 || style_check == data->commentStyle2)
-                        continue;
                     curStyle = SCINT_STRING1, style_st = curPos;
                     
                 } else if (*curChar == '\'') {
                     
-                    style_check = Call(0x7DA, curPos, 0); // SCI_GETSTYLEAT
-                    if (style_check == data->commentStyle1 || style_check == data->commentStyle2)
-                        continue;
                     curStyle = SCINT_STRING2, style_st = curPos;
                 
                 } else if (!strcmp(com1, com1_test)) {
                     
-                    if (*curChar == ';' && curPos == (docLength-1)) {
+                    if (curPos == (docLength-1)) {
                         Call(0x7F0, (curPos), 0);  // SCI_STARTSTYLING
                         Call(0x7F1, strlen(com1), (LPARAM) data->commentStyle1);  // SCI_SETSTYLING
                         continue;
@@ -463,6 +583,7 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                     curStyle = SCINT_COMMENT2, style_st = curPos;
                 
                 } else if (isdigit(*curChar)) {
+                    
                     nextChar = (j < (chunkLen-1)) ? &docTextRange[j+1] : "";
                     prevChar = (j > 0) ? &docTextRange[j-1] : "";
                     
@@ -471,15 +592,18 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                         if (isspace(*nextChar) || ispunct(*nextChar) || curPos == (chunkLen-1)) {
                             Call(0x7F0, (curPos), 0);  // SCI_STARTSTYLING
                             Call(0x7F1, 1, (LPARAM) data->numStyle);  // SCI_SETSTYLING
-
+                            curStyle = SCINT_NONE, style_st = 0, i = 0, x_count = 0;
+                            
                         } else if (*nextChar == 'x' || isdigit(*nextChar)) {
                             curStyle = SCINT_NUMBER, style_st = curPos, i = 1, x_count = 0;
                             
                         }
+                        
                     }
                     
                 }
                 else if (strchr(data->braces, *curChar)) {
+                    
                     style_check = Call(0x7DA, curPos, 0); // SCI_GETSTYLEAT
                     if (style_check == data->braceStyle)
                         continue;
@@ -490,23 +614,50 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
                     
                 }
                 else if (strchr(data->punct, *curChar)) {
+                    
                     Call(0x7F0, (curPos), 0);  // SCI_STARTSTYLING
                     Call(0x7F1, 1, (LPARAM) data->punctStyle);  // SCI_SETSTYLING
                     
+                    curStyle = SCINT_NONE, style_st = 0;
+                    
                 }
-                // else {
-                    // Call(0x7F0, (curPos), 0);  // SCI_STARTSTYLING
-                    // Call(0x7F1, 1, (LPARAM) 32);  // SCI_SETSTYLING
-                
-                // }
+                else if (strchr(data->wordChars, *curChar)) {
+                    
+                    nextChar = (j < (chunkLen-1)) ? &docTextRange[j+1] : "";
+                    
+                    if (!strchr(data->wordChars, *nextChar) && !isdigit(*nextChar)) {
+                    
+                        if (loading == 0) {
+                            Call(0x7F0, curPos, 0);  // SCI_STARTSTYLING
+                            Call(0x7F1, 1, (LPARAM) 32);  // SCI_SETSTYLING - default style
+                        }
+                        curStyle = SCINT_NONE, style_st = 0;
+                    } else
+                        curStyle = SCINT_WORD, style_st = curPos;
+                    
+                }
+                else if (isspace(*curChar)) {
+                    
+                    nextChar = (j < (chunkLen-1)) ? &docTextRange[j+1] : "";
+                    if (!isspace(*nextChar)) {
+                        if (loading == 0) {
+                            Call(0x7F0, curPos, 0);  // SCI_STARTSTYLING
+                            Call(0x7F1, 1, (LPARAM) 32);  // SCI_SETSTYLING - default style
+                        }
+                        curStyle = SCINT_NONE, style_st = 0;
+                    } else
+                        curStyle = SCINT_SPACE, style_st = curPos;
+                    
+                }
                 break;
                 
         } // switch statement
         
+        
+        
     } // for loop
     
-    // reset last style pos checking - required for properly matching braces
-    style_check = Call(0x7DA, docLength-1, 0); // SCI_GETSTYLEAT
+    style_check = Call(0x7DA, docLength-1, 0); // SCI_GETSTYLEAT // reset last style pos checking - required for properly matching braces
     Call(0x7F0, docLength-1, 0);    // SCI_STARTSTYLING
     Call(0x7F1, 1, (LPARAM) style_check);    // SCI_SETSTYLING
     
@@ -529,8 +680,7 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
             Call(0x7F0, curPos, 0);                     // SCI_STARTSTYLING
             Call(0x7F1, 1, (LPARAM) data->braceStyle);  // SCI_SETSTYLING
             
-            // reset last style pos checking
-            style_check = Call(0x7DA, docLength-1, 0);  // SCI_GETSTYLEAT
+            style_check = Call(0x7DA, docLength-1, 0);  // SCI_GETSTYLEAT // reset last style pos checking
             Call(0x7F0, docLength-1, 0);                // SCI_STARTSTYLING
             Call(0x7F1, 1, (LPARAM) style_check);       // SCI_SETSTYLING
             
@@ -538,6 +688,8 @@ __declspec(dllimport) unsigned int ChunkColoring(struct scint *data, int loading
         
         i++;
     }
+    
+    free(curWord);
     
     free(braceList->array);
     free(braceList);

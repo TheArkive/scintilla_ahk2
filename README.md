@@ -158,12 +158,44 @@ obj.Marker.num := 4 ; make future calls to obj.Marker.* apply to marker #4
                     ; If you don't specify a markerNum, then the specified num is used.
 ```
 
+### Keyword Lists
+
+```
+ctl.SetKeywords(list1, list2, ..., list8)
+    
+    words should be separated by a space
+
+ctl.cust.kw1.Fore := 0xAABBCC
+
+    kw1 - kw8 are available to set.  You can set more than just color:
+        properties: Back, Fore, Font, Size, Bold, Italic, Underline
+```
+
 Once you set the "active ID", future calls to these sub-classes will apply to the most recently set "ID" or "Line", or "marker number" respectively.
 
 # Current Changes
 
+2021/08/29
+
+new features
+* added word highlighting (currently only 8 lists)
+* updated `ctl.DefaultTheme()` method to setup 3 keyword list colors
+* added `ctl.SetKeywords()` method
+* added `ctl.CaseSense` proerty
+* added keyword lists for AHK (functions, built-in vars, flow control words) - not checked for completeness (just testing)
+* updated DLL code to take a keyword list and CaseSense value
+* currently loading test-script.ahk in about 1.55 secs
+
+2021/08/27
+
+bug fixes/new features
+* fixed exception thrown 0x00000005 when deleting all text
+* pressing ENTER inside `/* block comment */` now extends the block comment and styles text accordingly
+* removed some old lines of code
+
 2021/08/26
 
+minor changes
 * disabled LayoutCache in the example for more consistent fast loading
 * added a mechanism to disable unnecessary document parsing when loading
 * reworked README and consolidated some docs

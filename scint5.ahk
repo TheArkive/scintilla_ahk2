@@ -3,8 +3,6 @@
 ; Example
 ; ====================================================================
 
-hMod := DllCall("LoadLibrary","Str","test.dll","UPtr")
-
 (Scintilla) ; Init class, or simply #INCLUDE the extension-lib at the top.
 
 g := Gui("+Resize +E0x2000000 0x2000000","Scintilla Test")
@@ -12,20 +10,65 @@ g.OnEvent("Close",gui_close)
 g.OnEvent("Escape",gui_close)
 g.OnEvent("Size",gui_size)
 
+a := 1, b := 2
+if (1=0)
+    WinActive("ahk_id " b)
+
+
 ctl := g.AddScintilla("vMyScintilla w1000 h500 DefaultOpt DefaultTheme")
+
+ctl.CaseSense := false ; turn off case sense (for AHK), do this before setting keywords
+
+kw1 := "Else If Continue Critical Break Goto Return Loop Read Reg Parse Files Switch Try Catch Finally Throw Until While For Exit ExitApp OnError OnExit Reload Suspend Thread"
+
+kw2 := "Abs ASin ACos ATan BlockInput Buffer CallbackCreate CallbackFree CaretGetPos Ceil Chr Click ClipboardAll ClipWait ComCall ComObjActive ComObjArray ComObjConnect ComObject ComObjFlags ComObjFromPtr ComObjGet ComObjQuery ComObjType ComObjValue ComValue ControlAddItem ControlChooseIndex ControlChooseString ControlClick ControlDeleteItem ControlFindItem ControlFocus ControlGetChecked ControlGetChoice ControlGetClassNN ControlGetEnabled ControlGetFocus ControlGetHwnd ControlGetIndex ControlGetItems ControlGetPos ControlGetStyle ControlGetExStyle ControlGetText ControlGetVisible ControlHide ControlHideDropDown ControlMove ControlSend ControlSendText ControlSetChecked ControlSetEnabled ControlSetStyle ControlSetExStyle ControlSetText ControlShow ControlShowDropDown CoordMode Cos DateAdd DateDiff DetectHiddenText DetectHiddenWindows DirCopy DirCreate DirDelete DirExist DirMove DirSelect DllCall Download DriveEject DriveGetCapacity DriveGetFileSystem DriveGetLabel DriveGetList DriveGetSerial DriveGetSpaceFree DriveGetStatus DriveGetStatusCD DriveGetType DriveLock DriveRetract DriveSetLabel DriveUnlock Edit EditGetCurrentCol EditGetCurrentLine EditGetLine EditGetLineCount EditGetSelectedText EditPaste EnvGet EnvSet Exp FileAppend FileCopy FileCreateShortcut FileDelete FileEncoding FileExist FileInstall FileGetAttrib FileGetShortcut FileGetSize FileGetTime FileGetVersion FileMove FileOpen FileRead FileRecycle FileRecycleEmpty FileSelect FileSetAttrib FileSetTime Float Floor Format FormatTime GetKeyName GetKeyVK GetKeySC GetKeyState GetMethod GroupAdd GroupClose GroupDeactivate Gui GuiCtrlFromHwnd GuiFromHwnd HasBase HasMethod HasProp HotIf HotIfWinActive HotIfWinExist HotIfWinNotActive HotIfWinNotExist Hotkey Hotstring IL_Create IL_Add IL_Destroy ImageSearch IniDelete IniRead IniWrite InputBox InputHook InstallKeybdHook InstallMouseHook InStr Integer IsLabel IsObject IsSet IsSetRef KeyHistory KeyWait ListHotkeys ListLines ListVars ListViewGetContent LoadPicture Log Ln Map Max MenuBar Menu MenuFromHandle MenuSelect Min Mod MonitorGet MonitorGetCount MonitorGetName MonitorGetPrimary MonitorGetWorkArea MouseClick MouseClickDrag MouseGetPos MouseMove MsgBox Number NumGet NumPut ObjAddRef ObjRelease ObjBindMethod ObjHasOwnProp ObjOwnProps ObjGetBase ObjGetCapacity ObjOwnPropCount ObjSetBase ObjSetCapacity OnClipboardChange OnMessage Ord OutputDebug Pause Persistent PixelGetColor PixelSearch PostMessage ProcessClose ProcessExist ProcessSetPriority ProcessWait ProcessWaitClose Random RegExMatch RegExReplace RegDelete RegDeleteKey RegRead RegWrite Round Run RunAs RunWait Send SendText SendInput SendPlay SendEvent SendLevel SendMessage SendMode SetCapsLockState SetControlDelay SetDefaultMouseSpeed SetKeyDelay SetMouseDelay SetNumLockState SetScrollLockState SetRegView SetStoreCapsLockMode SetTimer SetTitleMatchMode SetWinDelay SetWorkingDir Shutdown Sin Sleep Sort SoundBeep SoundGetInterface SoundGetMute SoundGetName SoundGetVolume SoundPlay SoundSetMute SoundSetVolume SplitPath Sqrt StatusBarGetText StatusBarWait StrCompare StrGet String StrLen StrLower StrPut StrReplace StrSplit StrUpper SubStr SysGet SysGetIPAddresses Tan ToolTip TraySetIcon TrayTip Trim LTrim RTrim Type VarSetStrCapacity VerCompare WinActivate WinActivateBottom WinActive WinClose WinExist WinGetClass WinGetClientPos WinGetControls WinGetControlsHwnd WinGetCount WinGetID WinGetIDLast WinGetList WinGetMinMax WinGetPID WinGetPos WinGetProcessName WinGetProcessPath WinGetStyle WinGetExStyle WinGetText WinGetTitle WinGetTransColor WinGetTransparent WinHide WinKill WinMaximize WinMinimize WinMinimizeAll WinMinimizeAllUndo WinMove WinMoveBottom WinMoveTop WinRedraw WinRestore WinSetAlwaysOnTop WinSetEnabled WinSetRegion WinSetStyle WinSetExStyle WinSetTitle WinSetTransColor WinSetTransparent WinShow WinWait WinWaitActive WinWaitNotActive WinWaitClose"
+
+kw3 := "Add AddActiveX AddButton AddCheckbox AddComboBox AddCustom AddDateTime AddDropDownList AddEdit AddGroupBox AddHotkey AddLink AddListBox AddListView AddMonthCal AddPicture AddProgress AddRadio AddSlider AddStandard AddStatusBar AddTab AddText AddTreeView AddUpDown Bind Check Choose Clear Clone Close Count DefineMethod DefineProp Delete DeleteCol DeleteMethod DeleteProp Destroy Disable Enable Flash Focus Get GetAddress GetCapacity GetChild GetClientPos GetCount GetNext GetOwnPropDesc GetParent GetPos GetPrev GetSelection GetText Has HasKey HasOwnMethod HasOwnProp Hide Insert InsertAt InsertCol Len Mark Maximize MaxIndex Minimize MinIndex Modify ModifyCol Move Name OnCommand OnEvent OnNotify Opt OwnMethods OwnProps Pop Pos Push RawRead RawWrite Read ReadLine ReadUInt ReadInt ReadInt64 ReadShort ReadUShort ReadChar ReadUChar ReadDouble ReadFloat Redraw RemoveAt Rename Restore Seek Set SetCapacity SetColor SetFont SetIcon SetImageList SetParts SetText Show Submit Tell ToggleCheck ToggleEnable Uncheck UseTab Write WriteLine WriteUInt WriteInt WriteInt64 WriteShort WriteUShort WriteChar WriteUChar WriteDouble WriteFloat"
+
+kw4 := "AtEOF BackColor Base Capacity CaseSense ClassNN ClickCount Count Default Enabled Encoding Focused FocusedCtrl Gui Handle Hwnd Length MarginX MarginY MenuBar Name Pos Position Ptr Size Text Title Value Visible __Handle"
+
+kw5 := "A_Space A_Tab A_Args A_WorkingDir A_InitialWorkingDir A_ScriptDir A_ScriptName A_ScriptFullPath A_ScriptHwnd A_LineNumber A_LineFile A_ThisFunc A_AhkVersion A_AhkPath A_IsCompiled A_YYYY A_MM A_DD A_MMMM A_MMM A_DDDD A_DDD A_WDay A_YDay A_YWeek A_Hour A_Min A_Sec A_MSec A_Now A_NowUTC A_TickCount A_IsSuspended A_IsPaused A_IsCritical A_ListLines A_TitleMatchMode A_TitleMatchModeSpeed A_DetectHiddenWindows A_DetectHiddenText A_FileEncoding A_SendMode A_SendLevel A_StoreCapsLockMode A_KeyDelay A_KeyDuration A_KeyDelayPlay A_KeyDurationPlay A_WinDelay A_ControlDelay A_MouseDelay A_MouseDelayPlay A_DefaultMouseSpeed A_CoordModeToolTip A_CoordModePixel A_CoordModeMouse A_CoordModeCaret A_CoordModeMenu A_RegView A_TrayMenu A_AllowMainWindow A_AllowMainWindow A_IconHidden A_IconTip A_IconFile A_IconNumber A_TimeIdle A_TimeIdlePhysical A_TimeIdleKeyboard A_TimeIdleMouse A_ThisHotkey A_PriorHotkey A_PriorKey A_TimeSinceThisHotkey A_TimeSincePriorHotkey A_EndChar A_EndChar A_MaxHotkeysPerInterval A_HotkeyInterval A_HotkeyModifierTimeout A_ComSpec A_Temp A_OSVersion A_Is64bitOS A_PtrSize A_Language A_ComputerName A_UserName A_WinDir A_ProgramFiles A_AppData A_AppDataCommon A_Desktop A_DesktopCommon A_StartMenu A_StartMenuCommon A_Programs A_ProgramsCommon A_Startup A_StartupCommon A_MyDocuments A_IsAdmin A_ScreenWidth A_ScreenHeight A_ScreenDPI A_Clipboard A_Cursor A_EventInfo A_LastError True False A_Index A_LoopFileName A_LoopRegName A_LoopReadLine A_LoopField this"
+
+kw6 := "#ClipboardTimeout #DllLoad #ErrorStdOut #Hotstring #HotIf #HotIfTimeout #Include #IncludeAgain #InputLevel #MaxThreads #MaxThreadsBuffer #MaxThreadsPerHotkey #NoTrayIcon #Requires #SingleInstance #SuspendExempt #UseHook #Warn #WinActivateForce #If"
+
+kw7 := "Global Local Static"
+
+
+ctl.setKeywords(kw1, kw2, kw3, kw4, kw5, kw6, kw7)
+
 
 ; ======================================================================
 
 ; ctl.UseDirect := true ; the DLL uses the Direct Ptr for now
 ; ctl.Wrap.LayoutCache := 3 ; speeds up window resize on large docs, but sometimes causes slower load times on large documents
-
 ; ======================================================================
 ; items that should be set by the user
 ; ======================================================================
 ctl.Brace.Chars := "[]{}()" ; modify braces list that will be tracked
-ctl.SyntaxCommentLine := ";" ; test "// comment" by changing ";" to "//"
-ctl.SyntaxPunctChars := "?:*+-&^|!~/\.,=<>%" ; modify SyntaxPunctChars to include < and >
-ctl.AutoSizeNumberMargin := true
+ctl.SyntaxEscapeChar := "``" ; set this to "\" to load up CustomLexer.c, or to "``" to load an AHK script.
+ctl.SyntaxCommentLine := ";" ; set this to "//" to load up CustomLexer.c, or to ";" to load an AHK script.
+
+; ======================================================================
+; Setting DLL punct and word chars:
+;
+; Below are the defaults for punct and word chars for the DLL.  Setting
+; punct and word chars for Scintilla has a different purpose and a 
+; slightly different effect.  It's also kinda of squirrely.  Since it is
+; possible to use a direct pointer to parse Scintilla text I leave the
+; Scintilla defaults for punct and word chars alone.
+;
+; You'll notice that the punct defaults also contain braces, escape
+; chars, and of course " and '.  The search for punct chars happens 
+; after searching for those other elements, and thus doesn't affect
+; how braces, strings, and escape chars function.
+;
+; For WordChars, since a variable or function must normally start with
+; a letter or underscore, only specify letters and underscore/pound sign
+; if desired.  Matching for digits in a "word" is done separately assuming
+; the first character of the "word" is not a digit.
+; ======================================================================
+; ctl.SyntaxPunctChars := "!`"$%&'()*+,-./:;<=>?@[\]^``{|}~"                      ; this is the default
+; ctl.SyntaxWordChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_#" ; this is the default
 
 ; ======================================================================
 ; Simple to apply vertical colored lines at specified column - uncomment to test
@@ -35,7 +78,6 @@ ctl.AutoSizeNumberMargin := true
 ; ctl.Edge.Multi.Add(10,0x00FF00)
 ; ctl.Edge.Multi.Add(15,0x0000FF)
 ; ctl.Edge.View := 1
-; ======================================================================
 
 ; ======================================================================
 ; To see white space/CRLF/other special non-printing chars
@@ -44,8 +86,9 @@ ctl.AutoSizeNumberMargin := true
 ; ctl.LineEnding.View := 1
 ; ======================================================================
 
-; ctl.callback := ctl_callback ; this doesn't do anything for now
-ctl.CustomSyntaxHighlighting := true ; turning this off turns off syntax highlighting
+ctl.callback := ctl_callback ; this doesn't do anything for now
+ctl.CustomSyntaxHighlighting := true ; turns syntax highlighting on
+ctl.AutoSizeNumberMargin := true
 ; ctl.Target.Flags := Scintilla.sc_search.RegXP | Scintilla.sc_search.CXX11RegEx ; CXX11RegEx | POSIX
 
 ; ======================================================================
@@ -56,13 +99,16 @@ ctl.CustomSyntaxHighlighting := true ; turning this off turns off syntax highlig
 ; Set this to prevent unnecessary parsing and improve load time.  While
 ; editing the document additional parsing must happen in order to
 ; properly color the various elements of the document correctly when
-; adding/deleting text.  This value will automatically be set to 0
-; after loading a document.
+; adding/deleting/uncommenting text.  This value will automatically be
+; set to 0 after loading a document.
 ; ======================================================================
 ctl.loading := 1
 
-; sFile := A_ScriptDir "\" A_ScriptName ; this script
-sFile := "test-script.ahk" ; 2.16 MB
+
+
+; sFile := A_ScriptDir "\CustomLexer.c" ; C source for CustomLexer.dll
+sFile := A_ScriptDir "\" A_ScriptName ; this script
+; sFile := "test-script.ahk" ; 2.16 MB
 
 size := FileGetSize(sFile)
 ptr := ctl.Doc.Create(size+100)
@@ -70,7 +116,7 @@ ctl.Doc.ptr := ptr
 ctl.Text := FileRead(sFile)
 
 ; ======================================================================
-; These must be set manually after changing document ptr.
+; These must usually be set after changing document ptr.
 ; ======================================================================
 ctl.Tab.Use := false ; use spaces instad of tabs
 ctl.Tab.Width := 4 ; number of spaces for a tab
@@ -79,6 +125,12 @@ ctl.Tab.Width := 4 ; number of spaces for a tab
 ; show GUI
 ; ======================================================================
 g.Show()
+
+ctl.CurPos := 0 ; move to the beginning of the document
+
+ctl_callback(ctl, scn) { ; callback for wm_notify messages
+    ; do user stuff
+}
 
 gui_size(g, minMax, w, h) {
     ctl := g["MyScintilla"] ; test
@@ -96,17 +148,16 @@ F2::{
 }
 
 F3::{
-    msgbox "curPos: " ctl.curPos " / match: " ctl.Brace.Match(ctl.curPos) " / last style: " ctl.Styling.Last
+    global ctl
+    
+    ctl.CurPos := 0
+    
+    ; msgbox "curPos: " ctl.curPos " / match: " ctl.Brace.Match(ctl.curPos) " / last style: " ctl.Styling.Last
 }
 
 F4::{
     ExitApp
 }
-
-ctl_callback(ctl, scn) { ; callback for wm_notify messages
-    ; do user stuff
-}
-
 
 ; ====================================================================
 ; Scintilla Class
@@ -298,9 +349,6 @@ class Scintilla extends Gui.Custom {
             If !(SubStr(prop,1,2) = "__") And (SubStr(prop,1,1) = "_")
                 this.Prototype.%prop% := Scintilla.scint_base.prototype.%prop%
         
-        ; For prop in Scintilla.scint_base.prototype.OwnProps() ; how did i dupe this???
-            ; If !(SubStr(prop,1,2) = "__") And (SubStr(prop,1,1) = "_")
-                ; this.Prototype.%prop% := Scintilla.scint_base.prototype.%prop%
     }
     Static AddScintilla(_gui, sOptions) {
         DefaultOpt := false
@@ -321,17 +369,21 @@ class Scintilla extends Gui.Custom {
         ctl.base := Scintilla.Prototype ; attach methods (but not static ones)
         
         ; ======================================================================
-        ; Init DLL for using scint control in AHK script and get Direct Func/Ptr
+        ; Init CustomLexer DLL functions for using scint control in AHK script and get Direct Func/Ptr
         ; ======================================================================
         buf := Buffer(8,0)
         NumPut("UPtr", ctl.hwnd, buf)
-        result := DllCall("CustomLexer\Init","UPtr",buf.ptr,"UPtr") ; init DLL and get direct func/ptr
-        ; dbg("startup: " result)
-        ; ======================================================================
+        result := DllCall("CustomLexer\Init","UPtr",ctl.hwnd,"UPtr") ; init DLL and get direct func/ptr
         
+        ; ======================================================================
+        ; Register main SCN notification callback
+        ; ======================================================================
         ctl.msg_cb := ObjBindMethod(ctl, "wm_messages") ; Register wm_notify messages
         OnMessage(0x4E, ctl.msg_cb)
         
+        ; ======================================================================
+        ; Init some settings
+        ; ======================================================================
         ctl.loading := 0        ; set this to 1 when loading a document
         ctl.callback := ""      ; setting some main properties
         ctl.state := ""         ; used to determine input "mode", ie. string, comment, etc.
@@ -350,27 +402,33 @@ class Scintilla extends Gui.Custom {
         ctl.SyntaxCommentBlockB := "*/"
         ctl.SyntaxStringChar := Chr(34)
         ctl.SyntaxEscapeChar := Chr(96)
-        ctl.SyntaxPunctChars := "?:*+-&^|!~/\.,=%"
+        ctl.SyntaxPunctChars := "!`"$%&'()*+,-./:;<=>?@[\]^``{|}~"
+        ; ctl.SyntaxWordChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_#"
+        ctl.SyntaxWordChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_#"
         ctl.SyntaxString1 := Chr(34)
         ctl.SyntaxString2 := "'"
-        
+        ctl.CaseSense := false
+                
         ; ==============================================
         ; Custom Syntax Highlighting properties
         ; ==============================================
-        
-        ctl.StopStyling := false
         ctl.CustomSyntaxHighlighting := false
-        ctl.DocMap := [false] ; init as blank document with one unstyled line
         
+        ; =============================================
+        ; attach main objects to Scintilla control
+        ; =============================================
         ctl.init_classes()
         
-        ; =============================================
-        ; custom settings for control here
-        ; these 2 settings are recommended for modern systems
-        ; =============================================
+        ; ====================================================
+        ; These 2 settings are recommended for modern systems.
+        ; ====================================================
         ctl.BufferedDraw := 0   ; disable buffering for Direct2D
         ctl.SetTechnology := 2  ; use Direct2D
         
+        ; ==========================================================================================
+        ; These 2 methods are not required.  These only apply the settings that I prefer to use with
+        ; Scintilla.  You can modify the code in these methods to your requirements.
+        ; ==========================================================================================
         If DefaultOpt
             ctl.DefaultOpt()
         If DefaultTheme
@@ -403,6 +461,7 @@ class Scintilla extends Gui.Custom {
         this.Marker := Scintilla.Marker(this)
         ; OSX Find Indicator
         ; Printing
+        this.Punct := Scintilla.Punct(this)
         this.Selection := Scintilla.Selection(this)
         this.Style := Scintilla.Style(this)
         this.Styling := Scintilla.Styling(this)
@@ -414,7 +473,14 @@ class Scintilla extends Gui.Custom {
         this.Wrap := Scintilla.Wrap(this)
         
         this.cust := Scintilla.cust(this)
-
+        
+        ; ====================================================
+        ; Setup keyword lists
+        ; ====================================================
+        this.kw1 := "", this.kw1_utf8 := Buffer(1,0), this.kw5 := "", this.kw5_utf8 := Buffer(1,0)
+        this.kw2 := "", this.kw2_utf8 := Buffer(1,0), this.kw6 := "", this.kw6_utf8 := Buffer(1,0)
+        this.kw3 := "", this.kw3_utf8 := Buffer(1,0), this.kw7 := "", this.kw7_utf8 := Buffer(1,0)
+        this.kw4 := "", this.kw4_utf8 := Buffer(1,0), this.kw8 := "", this.kw8_utf8 := Buffer(1,0)
     }
     Static Lookup(member, in_value) {
         For prop, value in this.%member%.OwnProps()
@@ -468,8 +534,6 @@ class Scintilla extends Gui.Custom {
         
         event := scn.wmmsg_txt := Scintilla.Lookup("wm_notify", (msg_num := scn.wmmsg))
         
-        ; dbg("event: " event)
-        
         ; =========================================================================
         ; Easy events: Comment any of these out if you want to fine-tune function
         ; or performance in the user callback manually.
@@ -480,34 +544,32 @@ class Scintilla extends Gui.Custom {
         
         If (this.CustomSyntaxHighlighting) {
             
-            If (scn.modType & modType.InsertText)                           ; Captures text editing and scrolling
-            || (event = "UpdateUI" && (scn.updated=4 || scn.updated=8)) {
+            data := this.scn_data(scn) ; prep data for DLL calls
+            ; wordList := this.makeWordLists()
             
-                _scn := {pos:scn.pos, text:scn.text, linesAdded:scn.linesAdded  ; Etract values for timers, otherwise
-                       , updated:scn.updated, wmmsg_txt:event                   ; those values are destroyed.
-                       , LineBeforeInsert:ctl.CurLine
-                       , LinesBeforeInsert:this.Lines
-                       , Length:scn.length}    
-                
-                If (event = "Modified") && (scn.linesAdded) { ; paste or document load operation
+            If (scn.modType & modType.InsertText)                           ; Captures text editing and scrolling
+                || (event = "UpdateUI" && (scn.updated=4 || scn.updated=8)) {
+            
+                If (event = "Modified") && (scn.length > 1) { ; && (scn.linesAdded) { ; paste or document load operation
                     ticks := A_TickCount
-                    this.ChunkColoring(scn)
-                    dbg( "BraceInit Seconds:  " (A_TickCount - ticks) / 1000 " / End Style: " this.Styling.Last)
+                    result := this.ChunkColoring(scn, data, this._wordList)
+                    dbg( "ChunkColoring Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
                 } 
                 else if (event = "Modified") && (!scn.linesAdded) {
-                    ; ticks := A_TickCount
-                    this.ChunkColoring(scn)
-                    ; dbg( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / End Style: " this.Styling.Last)
+                ; else if (event = "CharAdded") {
+                    ticks := A_TickCount
+                    result := this.ChunkColoring(scn, data, this._wordList)
+                    dbg( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
                 }
                 
             }
             
             Else If (scn.modType & modType.BeforeDelete)
-                this.DeleteRoutine(scn)
+                this.DeleteRoutine(scn, data)
             Else if (scn.modType & modType.DeleteText)
-                this.ChunkColoring(scn) ; redo coloring after delete
+                this.ChunkColoring(scn, data, this._wordList) ; redo coloring after delete
         
-            If (scn.wmmsg_txt = "StyleNeeded") { ; works but doesn't perform well with large pastes
+            If (scn.wmmsg_txt = "StyleNeeded") {
                 ; ticks := A_TickCount
                 this.Pacify() ; pacify the StyleNeeded bit by styling the last char in the doc
                 ; dbg( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
@@ -538,7 +600,7 @@ class Scintilla extends Gui.Custom {
         this.Margin.Width := (width >= min_width) ? width : min_width
     }
     
-    Pacify() { ; hopefully no one ends the doc with a multi-byte character
+    Pacify() { ; End each notification by styling the last char in the doc to satisfy "StyleNeeded" event.
         _lastPos := ctl.Length-1
         , _style := this.GetStyle(_lastPos)
         , this._sms(0x7F0, (_lastPos), 0) ;  // SCI_STARTSTYLING
@@ -665,11 +727,31 @@ class Scintilla extends Gui.Custom {
         
     ; }
     
-    ChunkColoring(scn) { ; the DLL -- avg = 0.68 secs
-        ; dbg("BraceInit")
+    setKeywords(p*) {
+        Loop 8 {
+            str := (p.Has(A_Index)) ? " " (this.CaseSense ? Trim(p[A_Index]) : Trim(StrLower(p[A_Index]))) " " : ""
+            this.kw%A_Index% := str
+            this.kw%A_Index%_utf8 := Buffer(StrPut(str,"UTF-8"),0)
+            StrPut(str,this.kw%A_Index%_utf8,"UTF-8")
+        }
         
-        buf := (A_PtrSize=8) ? Buffer(80,0) : Buffer(52,0)
-        NumPut("UInt", scn.pos, "UInt", scn.length, "UInt", this.CurLine, "UInt", scn.linesAdded, buf)
+        this._wordList := this.makeWordLists()
+    }
+    makeWordLists() {
+        buf := Buffer(8 + (8 * A_PtrSize), 0)
+        
+        Loop 8
+            NumPut("Char", this.cust.kw%A_Index%.ID, buf, A_Index - 1)
+        
+        Loop 8
+            NumPut("UPtr", this.kw%A_Index%_utf8.ptr, buf, ((A_Index-1) * 8) + 8)
+        
+        return buf
+    }
+    
+    scn_data(scn) { ; prep scn data for DLL call
+        buf := (A_PtrSize=8) ? Buffer(96,0) : Buffer(60,0)
+        NumPut("UInt", scn.pos, "UInt", scn.length, "UInt", scn.linesAdded, buf)
         
         NumPut("UChar", this.cust.String1.ID, buf, 16)
         NumPut("UChar", this.cust.String2.ID, buf, 17)
@@ -683,8 +765,6 @@ class Scintilla extends Gui.Custom {
         braceStr := Buffer(StrPut(this.Brace.Chars,"UTF-8"),0)
         StrPut(this.Brace.Chars,braceStr,"UTF-8")
         NumPut("UPtr", braceStr.ptr, buf, 24)
-        
-        ; dbg("line comment len: " StrPut(this.SyntaxCommentLine,"UTF-8"))
         
         comment1 := Buffer(StrPut(this.SyntaxCommentLine,"UTF-8"),0)
         StrPut(this.SyntaxCommentLine,comment1,"UTF-8")
@@ -706,27 +786,31 @@ class Scintilla extends Gui.Custom {
         StrPut(this.SyntaxPunctChars,punctChar,"UTF-8")
         NumPut("UPtr", punctChar.ptr, buf, (A_PtrSize=8)?64:44)
         
-        NumPut("UPtr", this.hwnd, buf, (A_PtrSize=8)?72:48)
+        str1 := Buffer(StrPut(this.SyntaxString1,"UTF-8"),0)
+        StrPut(this.SyntaxString1,str1,"UTF-8")
+        NumPut("UPtr", str1.ptr, buf, (A_PtrSize=8)?72:48)
         
-        pos2 := DllCall("CustomLexer\ChunkColoring","UPtr",buf.ptr,"Int",this.loading)
+        str2 := Buffer(StrPut(this.SyntaxString2,"UTF-8"),0)
+        StrPut(this.SyntaxString2,str2,"UTF-8")
+        NumPut("UPtr", str2.ptr, buf, (A_PtrSize=8)?80:52)
         
-        this.loading := 0
+        wordChars := Buffer(StrPut(this.SyntaxWordChars,"UTF-8"),0)
+        StrPut(this.SyntaxWordChars,wordChars,"UTF-8")
+        NumPut("UPtr", wordChars.ptr, buf, (A_PtrSize=8)?88:56)
         
-        ; dbg("ChunkColoring result: " pos2)
+        return buf
     }
     
-    DeleteRoutine(scn) { ; the DLL -- avg = 0.68 secs
+    ChunkColoring(scn, data, wordList) { ; the DLL -- avg = 0.68 secs
+        result := DllCall("CustomLexer\ChunkColoring","UPtr",data.ptr,"Int",this.loading,"UPtr", wordList.ptr,"Int",this.CaseSense)
         
-        braceStr := Buffer(StrPut(this.Brace.Chars,"UTF-8"),0)
-        StrPut(this.Brace.Chars,braceStr,"UTF-8")
+        this.loading := 0 ; reset "loading" status
         
-        pos2 := DllCall("CustomLexer\DeleteRoutine","UInt", scn.pos
-                                                   ,"UInt", (scn.pos + scn.length)
-                                                   ,"Int", this.cust.Brace.ID
-                                                   ,"Int", this.cust.BraceHBad.ID
-                                                   ,"UPtr", braceStr.ptr)
-                
-        dbg("DeleteRoutine result: " pos2)
+        return result
+    }
+    
+    DeleteRoutine(scn, data) { ; the DLL -- avg = 0.68 secs
+        return DllCall("CustomLexer\DeleteRoutine", "UPtr", data.ptr)
     }
     
     DefaultOpt() {
@@ -751,8 +835,6 @@ class Scintilla extends Gui.Custom {
         this.Selection.MultiTyping := true ; type during multi-selection
         this.Selection.RectModifier := 4 ; alt + drag for rect selection
         this.Selection.RectWithMouse := true ; drag + alt also works for rect selection
-        
-        ; this.Styling.Idle := 3 ; All (style before and after visible text)
     }
 
     DefaultTheme() {
@@ -771,24 +853,24 @@ class Scintilla extends Gui.Custom {
         this.cust.Caret.Fore := 0x00FF00
         this.cust.Selection.Back := 0x550000
         
-        ; s.ID := 34 ; brace highlight
-        ; s.Fore := 0x00FF00
-        
-        ; s.ID := 35 ; brace bad highlight
-        ; s.Fore := 0xFF0000
-        
-        this.cust.Brace.Fore     := 0x8080FF ; basic brace color
+        this.cust.Brace.Fore     := 0x0900ff ; basic brace color
         this.cust.BraceH.Fore    := 0x00FF00 ; brace color highlight
         this.cust.BraceHBad.Fore := 0xFF0000 ; brace color bad light
-        this.cust.Punct.Fore     := 0xFF8040
-        this.cust.String1.Fore   := 0x555555
-        this.cust.String2.Fore   := 0x767676
+        this.cust.Punct.Fore     := 0x9090FF
+        this.cust.String1.Fore   := 0x666666
+        this.cust.String2.Fore   := 0x666666
         
-        ; msgbox this.cust.String2.ID
-        
-        this.cust.Comment1.Fore  := 0x008800 ; keeping it the same for now
-        this.cust.Comment2.Fore  := 0x008800
+        this.cust.Comment1.Fore  := 0x008800 ; keeping comment color same
+        this.cust.Comment2.Fore  := 0x008800 ; keeping comment color same
         this.cust.Number.Fore    := 0xFFFF00
+        
+        this.cust.kw1.Fore := 0xc94969 ; flow - red - set keyword list colors, kw1 - kw8
+        this.cust.kw2.Fore := 0x6b66ff ; funcion - blue
+        this.cust.kw3.Fore := 0xbde03c ; method - light green
+        this.cust.kw4.Fore := 0xd6f955 ; prop - green ish
+        this.cust.kw5.Fore := 0xf9c543 ; vars - blueish
+        this.cust.kw6.Fore := 0xb5b2ff ; directives - blueish
+        this.cust.kw7.Fore := 0x127782 ; var decl
     }
     
     class cust {
@@ -806,6 +888,15 @@ class Scintilla extends Gui.Custom {
             this.Caret := sup.Caret
             this.Margin := Scintilla.cust.subItem(sup,33)
             this.Editor := Scintilla.cust.subItem(sup,32)
+            
+            this.kw1 := Scintilla.cust.subItem(sup,64)
+            this.kw2 := Scintilla.cust.subItem(sup,65)
+            this.kw3 := Scintilla.cust.subItem(sup,66)
+            this.kw4 := Scintilla.cust.subItem(sup,67)
+            this.kw5 := Scintilla.cust.subItem(sup,68)
+            this.kw6 := Scintilla.cust.subItem(sup,69)
+            this.kw7 := Scintilla.cust.subItem(sup,70)
+            this.kw8 := Scintilla.cust.subItem(sup,71)
         }
         
         class subItem {
@@ -1825,6 +1916,13 @@ class Scintilla extends Gui.Custom {
         }
     }
     
+    class Punct extends Scintilla.scint_base {
+        Chars { ; set/get punct chars
+            get => this._GetStr(0xA59,,true)    ; SCI_GETPUNCTUATIONCHARS
+            set => this._PutStr(0xA58,,value)   ; SCI_SETPUNCTUATIONCHARS
+        }
+    }
+    
     class Selection extends Scintilla.scint_base {  ; GET/SET ADDITIONALSELECTIONTYPING
         _BackColor := 0xFFFFFF
         _BackEnabled := true
@@ -2267,6 +2365,10 @@ class Scintilla extends Gui.Custom {
             get => (0xFF000000 & this._BackColor) ? Format("0x{:08X}", this._BackColor) : Format("0x{:06X}", this._BackColor)
             set => this._sms(0x825, this._BackEnabled, this._RGB_BGR(this._BackColor := value)) ; SCI_SETWHITESPACEBACK
         }
+        Chars { ; set/get white space chars
+            get => this._GetStr(0xA57,,true)    ; SCI_GETWHITESPACECHARS
+            set => this._PutStr(0x98B,,value)   ; SCI_SETWHITESPACECHARS
+        }
         ExtraAscent { ; int (bool?)
             get => this._sms(0x9DE)         ; SCI_GETEXTRAASCENT
             set => this._sms(0x9DD, value)  ; SCI_SETEXTRAASCENT
@@ -2306,6 +2408,10 @@ class Scintilla extends Gui.Custom {
             get => this._sms(0xAA1)         ; SCI_GETCHARACTERCATEGORYOPTIMIZATION
             set => this._sms(0xAA0, value)  ; SCI_SETCHARACTERCATEGORYOPTIMIZATION
         }
+        Chars { ; set/get word chars
+            get => this._GetStr(0xA56,,true)    ; SCI_GETWORDCHARS
+            set => this._PutStr(0x81D,,value)   ; SCI_SETWORDCHARS
+        }
         Default() { ; resets chars for words, whiteSpace, and punctuation
             return this._sms(0x98C) ; SCI_SETCHARSDEFAULT
         }
@@ -2315,20 +2421,9 @@ class Scintilla extends Gui.Custom {
         IsRangeWord(start_pos, end_pos) {
             return this._sms(0xA83, start_pos, end_pos) ; SCI_ISRANGEWORD
         }
-        PunctuationChars { ; set/get punct chars
-            get => this._GetStr(0xA59,,true)    ; SCI_GETPUNCTUATIONCHARS
-            set => this._PutStr(0xA58,,value)   ; SCI_SETPUNCTUATIONCHARS
-        }
+        
         StartPos(start_pos, OnlyWordChars:=true) { ; get "start of word" pos from specified pos
             return this._sms(0x8DA, start_pos, OnlyWordChars)   ; SCI_WORDSTARTPOSITION
-        }
-        WhiteSpaceChars { ; set/get white space chars
-            get => this._GetStr(0xA57,,true)    ; SCI_GETWHITESPACECHARS
-            set => this._PutStr(0x98B,,value)   ; SCI_SETWHITESPACECHARS
-        }
-        WordChars { ; set/get word chars
-            get => this._GetStr(0xA56,,true)    ; SCI_GETWORDCHARS
-            set => this._PutStr(0x81D,,value)   ; SCI_SETWORDCHARS
         }
     }
     
@@ -2601,7 +2696,7 @@ class Scintilla extends Gui.Custom {
 
 dbg(_in) {
     Loop Parse _in, "`n", "`r"
-        OutputDebug "AHK: " A_LoopField
+        OutputDebug("AHK: " A_LoopField)
 }
 
 
