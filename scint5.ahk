@@ -332,7 +332,7 @@ class Scintilla extends Gui.Custom {
         
         scint_path := A_ScriptDir "\Scintilla.dll" ; Set this as needed.
         
-        If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path), "UPtr") {    ; load dll, make sure it works
+        If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path, "UPtr")) {    ; load dll, make sure it works
             MsgBox "Scintilla DLL not found.`n`nModify the path to the appropriate location for your script."
             ExitApp
         }
