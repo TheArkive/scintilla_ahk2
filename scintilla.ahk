@@ -1,4 +1,4 @@
-﻿; ====================================================================
+; ====================================================================
 ; Scintilla Class - sorry, no docs yet!
 ; ====================================================================
 class Scintilla extends Gui.Custom {
@@ -169,14 +169,14 @@ class Scintilla extends Gui.Custom {
     Static __New() {                                                        ; Need to do it this way.
         Gui.Prototype.AddScintilla := ObjBindMethod(this,"AddScintilla")    ; Multiple gui subclass extensions don't play well together.
         
-        scint_path := A_ScriptDir "\Scintilla.dll" ; Set this as needed.
+        scint_path := A_LineFile "\..\Scintilla.dll" ; Set this as needed.
         
         If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path, "UPtr")) {    ; load dll, make sure it works
-            MsgBox "Scintilla DLL not found.`n`nModify the path to the appropriate location for your script."
+            MsgBox "Scintilla DLL not found.`n`nModify the path to the appropriate location for your script." 
             ExitApp
         }
         
-        custom_lexer := "CustomLexer.dll" ; change this path as needed (if you choose to move the DLL)
+        custom_lexer := A_LineFile "\..\CustomLexer.dll" ; change this path as needed (if you choose to move the DLL)
         If !DllCall("LoadLibrary", "Str", custom_lexer, "UPtr") {
             Msgbox "CustomLexer.dll not found."
             ExitApp
@@ -392,13 +392,13 @@ class Scintilla extends Gui.Custom {
                 If (event = "Modified") && (scn.length > 1) { ; && (scn.linesAdded) { ; paste or document load operation
                     ticks := A_TickCount
                     result := this.ChunkColoring(scn, data, this._wordList)
-                    dbg( "ChunkColoring Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
+                    dbg_scintilla( "ChunkColoring Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
                 } 
                 else if (event = "Modified") && (!scn.linesAdded) {
                 ; else if (event = "CharAdded") {
                     ticks := A_TickCount
                     result := this.ChunkColoring(scn, data, this._wordList)
-                    dbg( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
+                    dbg_scintilla( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
                 }
                 
             }
@@ -411,7 +411,7 @@ class Scintilla extends Gui.Custom {
             If (scn.wmmsg_txt = "StyleNeeded") {
                 ; ticks := A_TickCount
                 this.Pacify() ; pacify the StyleNeeded bit by styling the last char in the doc
-                ; dbg( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
+                ; dbg_scintilla( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
                 
             }
         }
@@ -440,7 +440,7 @@ class Scintilla extends Gui.Custom {
     }
     
     Pacify() { ; End each notification by styling the last char in the doc to satisfy "StyleNeeded" event.
-        _lastPos := ctl.Length-1
+        _lastPos := this.ctl.Length-1
         , _style := this.GetStyle(_lastPos)
         , this._sms(0x7F0, (_lastPos), 0) ;  // SCI_STARTSTYLING
         , this._sms(0x7F1, 1, _style) ;  // SCI_SETSTYLING
@@ -1855,8 +1855,8 @@ class Scintilla extends Gui.Custom {
         }
         Get(sel_num:=0) {
             tr := Scintilla.TextRange()
-            tr.cpMin := ctl.Selection.Start(,sel_num)
-            tr.cpMax := ctl.Selection.End(,sel_num)
+            tr.cpMin := this.ctl.Selection.Start(,sel_num)
+            tr.cpMax := this.ctl.Selection.End(,sel_num)
             this._sms(0x872, 0, tr.ptr) ; SCI_GETTEXTRANGE
             return StrGet(tr.buf, "UTF-8")
         }
@@ -2357,7 +2357,7 @@ class Scintilla extends Gui.Custom {
             If (obj.UseDirect) {
                 r := DllCall(obj.DirectStatusFunc, "UPtr", obj.DirectPtr, "UInt", msg, "Int", wParam, "Int", lParam, "Int*", &status:=0)
                 obj._StatusD := status
-                ; dbg("Direct Func Status")
+                ; dbg_scintilla("Direct Func Status")
             } Else {
                 r := SendMessage(msg, wParam, lParam, obj.hwnd)
             }
@@ -2533,7 +2533,7 @@ class Scintilla extends Gui.Custom {
 }
 
 
-dbg(_in) {
+dbg_scintilla(_in) {
     Loop Parse _in, "`n", "`r"
         OutputDebug("AHK: " A_LoopField)
 }
@@ -2608,4 +2608,5 @@ myFunc() {
  ; /* SCN_AUTOCSELECTION, SCN_AUTOCCOMPLETED, SCN_USERLISTSELECTION, */
  ; int characterSource; /* SCN_CHARADDED */
 ; };
+
 
