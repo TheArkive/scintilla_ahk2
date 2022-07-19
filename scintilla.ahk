@@ -1,4 +1,4 @@
-﻿; ====================================================================
+; ====================================================================
 ; Scintilla Class - sorry, no docs yet!
 ; ====================================================================
 class Scintilla extends Gui.Custom {
@@ -169,14 +169,14 @@ class Scintilla extends Gui.Custom {
     Static __New() {                                                        ; Need to do it this way.
         Gui.Prototype.AddScintilla := ObjBindMethod(this,"AddScintilla")    ; Multiple gui subclass extensions don't play well together.
         
-        scint_path := A_ScriptDir "\Scintilla.dll" ; Set this as needed.
+        scint_path := A_LineFile "\..\Scintilla.dll" ; Set this as needed.
         
         If !(this.hModule := DllCall("LoadLibrary", "Str", scint_path, "UPtr")) {    ; load dll, make sure it works
-            MsgBox "Scintilla DLL not found.`n`nModify the path to the appropriate location for your script."
+            MsgBox "Scintilla DLL not found.`n`nModify the path to the appropriate location for your script.`n" 
             ExitApp
         }
         
-        custom_lexer := "CustomLexer.dll" ; change this path as needed (if you choose to move the DLL)
+        custom_lexer := A_LineFile "\..\CustomLexer.dll" ; change this path as needed (if you choose to move the DLL)
         If !DllCall("LoadLibrary", "Str", custom_lexer, "UPtr") {
             Msgbox "CustomLexer.dll not found."
             ExitApp
@@ -192,6 +192,7 @@ class Scintilla extends Gui.Custom {
     Static AddScintilla(_gui, sOptions) {
         DefaultOpt := false
         DefaultTheme := false
+        LightTheme := false
         
         opt_arr := StrSplit(sOptions," ")
         sOptions := ""
@@ -200,6 +201,8 @@ class Scintilla extends Gui.Custom {
                 DefaultOpt := true
             Else If (str = "DefaultTheme")
                 DefaultTheme := true
+            Else If (str = "LightTheme")
+                LightTheme := true
             Else
                 sOptions .= (sOptions?" ":"") str
         }
@@ -272,6 +275,8 @@ class Scintilla extends Gui.Custom {
             ctl.DefaultOpt()
         If DefaultTheme
             ctl.DefaultTheme()
+        If LightTheme
+            ctl.LightTheme()
         
         return ctl
     }
@@ -392,13 +397,13 @@ class Scintilla extends Gui.Custom {
                 If (event = "Modified") && (scn.length > 1) { ; && (scn.linesAdded) { ; paste or document load operation
                     ticks := A_TickCount
                     result := this.ChunkColoring(scn, data, this._wordList)
-                    dbg( "ChunkColoring Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
+                    dbg_scintilla( "ChunkColoring Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
                 } 
                 else if (event = "Modified") && (!scn.linesAdded) {
                 ; else if (event = "CharAdded") {
                     ticks := A_TickCount
                     result := this.ChunkColoring(scn, data, this._wordList)
-                    dbg( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
+                    dbg_scintilla( "Line Styling Seconds:  " (A_TickCount - ticks) / 1000 " / result: " result)
                 }
                 
             }
@@ -411,7 +416,7 @@ class Scintilla extends Gui.Custom {
             If (scn.wmmsg_txt = "StyleNeeded") {
                 ; ticks := A_TickCount
                 this.Pacify() ; pacify the StyleNeeded bit by styling the last char in the doc
-                ; dbg( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
+                ; dbg_scintilla( "StyleNeeded Seconds:  " (A_TickCount - ticks) / 1000 " / Last: " this.Styling.Last)
                 
             }
         }
@@ -440,7 +445,7 @@ class Scintilla extends Gui.Custom {
     }
     
     Pacify() { ; End each notification by styling the last char in the doc to satisfy "StyleNeeded" event.
-        _lastPos := ctl.Length-1
+        _lastPos := this.Length-1
         , _style := this.GetStyle(_lastPos)
         , this._sms(0x7F0, (_lastPos), 0) ;  // SCI_STARTSTYLING
         , this._sms(0x7F1, 1, _style) ;  // SCI_SETSTYLING
@@ -710,6 +715,45 @@ class Scintilla extends Gui.Custom {
         this.cust.kw5.Fore := 0xf9c543 ; vars - blueish
         this.cust.kw6.Fore := 0xb5b2ff ; directives - blueish
         this.cust.kw7.Fore := 0x127782 ; var decl
+    }
+    LightTheme() {
+        this.cust.Caret.LineBack := 0xF6F9FC  ; active line (with caret)
+        this.cust.Editor.Back := 0xFDFDFD
+    
+        this.cust.Editor.Fore := 0x000000
+        this.cust.Editor.Font := "Consolas"
+        this.cust.Editor.Size := 10
+    
+        this.Style.ClearAll() ; apply style 32
+    
+        this.cust.Margin.Back := 0xF0F0F0
+        this.cust.Margin.Fore := 0x000000
+    
+        this.cust.Caret.Fore := 0x00FF00
+        this.cust.Selection.Back := 0x398FFB
+        this.cust.Selection.ForeColor := 0xFFFFFF
+    
+        this.cust.Brace.Fore     := 0x5F6364 ; basic brace color
+        this.cust.BraceH.Fore    := 0x00FF00 ; brace color highlight
+        this.cust.BraceHBad.Fore := 0xFF0000 ; brace color bad light
+        this.cust.Punct.Fore     := 0xA57F5B
+        this.cust.String1.Fore   := 0x329C1B ; "" double quoted text
+        this.cust.String2.Fore   := 0x329C1B ; '' single quoted text
+    
+        this.cust.Comment1.Fore  := 0x7D8B98 ; keeping comment color same
+        this.cust.Comment2.Fore  := 0x7D8B98 ; keeping comment color same
+        this.cust.Number.Fore    := 0xC72A31
+    
+        this.cust.kw1.Fore := 0x329C1B ; flow - set keyword list colors, kw1 - kw8
+        this.cust.kw2.Fore := 0x1049BF ; funcion
+        this.cust.kw2.Bold := true ; funcion
+        this.cust.kw3.Fore := 0x2390B6 ; method
+        this.cust.kw3.Bold := true ; funcion
+        this.cust.kw4.Fore := 0x3F8CD4 ; prop
+        this.cust.kw5.Fore := 0xC72A31 ; vars
+    
+        this.cust.kw6.Fore := 0xEC9821 ; directives
+        this.cust.kw7.Fore := 0x2390B6 ; var decl
     }
     
     class cust {
@@ -1855,8 +1899,8 @@ class Scintilla extends Gui.Custom {
         }
         Get(sel_num:=0) {
             tr := Scintilla.TextRange()
-            tr.cpMin := ctl.Selection.Start(,sel_num)
-            tr.cpMax := ctl.Selection.End(,sel_num)
+            tr.cpMin := this.ctl.Selection.Start(,sel_num)
+            tr.cpMax := this.ctl.Selection.End(,sel_num)
             this._sms(0x872, 0, tr.ptr) ; SCI_GETTEXTRANGE
             return StrGet(tr.buf, "UTF-8")
         }
@@ -2357,7 +2401,7 @@ class Scintilla extends Gui.Custom {
             If (obj.UseDirect) {
                 r := DllCall(obj.DirectStatusFunc, "UPtr", obj.DirectPtr, "UInt", msg, "Int", wParam, "Int", lParam, "Int*", &status:=0)
                 obj._StatusD := status
-                ; dbg("Direct Func Status")
+                ; dbg_scintilla("Direct Func Status")
             } Else {
                 r := SendMessage(msg, wParam, lParam, obj.hwnd)
             }
@@ -2533,7 +2577,7 @@ class Scintilla extends Gui.Custom {
 }
 
 
-dbg(_in) {
+dbg_scintilla(_in) {
     Loop Parse _in, "`n", "`r"
         OutputDebug("AHK: " A_LoopField)
 }
