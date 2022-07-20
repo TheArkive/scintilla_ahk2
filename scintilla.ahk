@@ -1032,6 +1032,10 @@ class Scintilla extends Gui.Custom {
         style := (style!="")?style:this.Style.ID
         return this._PutStr(0x8E4, style, txt)    ; SCI_TEXTWIDTH
     }
+    Value {                              ; gets/sets entire document text
+        get => this._GetStr(0x886, this.Length + 1)
+        set => this._PutStr(0x885, 0, value)
+    }
     
     ; =========================================================================================
     ; Scintilla Control Actions
