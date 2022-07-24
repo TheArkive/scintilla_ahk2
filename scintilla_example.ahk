@@ -152,7 +152,8 @@ F2::{
 F3::{
     global ctl
     
-    ctl.CurPos := 0
+    ; msgbox ctl.GetChar(ctl.CurPos)
+    msgbox ctl.LineLength() "`n`n" ctl.LineText()
     
     ; msgbox "curPos: " ctl.curPos " / match: " ctl.Brace.Match(ctl.curPos) " / last style: " ctl.Styling.Last
 }
@@ -160,3 +161,5 @@ F3::{
 F4::{
     ExitApp
 }
+
+g := Gui("+Resize +E0x2000000 0x2000000","Scintilla Test")

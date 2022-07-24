@@ -339,43 +339,15 @@ class Scintilla extends Gui.Custom {
                 out_str .= (out_str?" ":"") prop
         return out_str
     }
-    Static RGB(R, G, B) {
-        return Format("0x{:06X}",(R << 16) | (G << 8) | B)
-    }
+    Static RGB(R, G, B) => Format("0x{:06X}",(R << 16) | (G << 8) | B)
     
     wm_messages(wParam, lParam, msg, hwnd) {
         Static modType := Scintilla.sc_modType
         
         scn := Scintilla.SCNotification(lParam)
+        
         scn.LineBeforeInsert := this.CurLine
         scn.LinesBeforeInsert := this.Lines
-        
-        ; _scn := {hwnd:scn.hwnd
-               ; , id:scn.id
-               ; , wmmsg:scn.wmmsg
-               ; , pos:scn.pos ; 
-               ; , ch:scn.ch
-               ; , mod:scn.mod
-               ; , modType:scn.modType
-               ; , text:scn.text ; 
-               ; , length:scn.length
-               ; , linesAdded:scn.linesAdded ;
-               ; , message:scn.message
-               ; , wParam:scn.wParam
-               ; , lParam:scn.lParam
-               ; , line:scn.line
-               ; , foldLevelNow:scn.foldLevelNow
-               ; , foldLevelPrev:scn.foldLevelPrev
-               ; , margin:scn.margin
-               ; , listType:scn.listType
-               ; , x:scn.x
-               ; , y:scn.y
-               ; , token:scn.token
-               ; , annotationLinesAdded:scn.annotationLinesAdded
-               ; , updated:scn.updated ;
-               ; , listCompletionMethod:scn.listCompletionMethod
-               ; , characterSource:scn.characterSource}
-        
         event := scn.wmmsg_txt := Scintilla.Lookup("wm_notify", (msg_num := scn.wmmsg))
         
         ; =========================================================================
@@ -772,92 +744,23 @@ class Scintilla extends Gui.Custom {
             this.Margin := Scintilla.cust.subItem(sup,33)
             this.Editor := Scintilla.cust.subItem(sup,32)
             
-            this.kw1 := Scintilla.cust.subItem(sup,64)
-            this.kw2 := Scintilla.cust.subItem(sup,65)
-            this.kw3 := Scintilla.cust.subItem(sup,66)
-            this.kw4 := Scintilla.cust.subItem(sup,67)
-            this.kw5 := Scintilla.cust.subItem(sup,68)
-            this.kw6 := Scintilla.cust.subItem(sup,69)
-            this.kw7 := Scintilla.cust.subItem(sup,70)
-            this.kw8 := Scintilla.cust.subItem(sup,71)
+            this.kw1 := Scintilla.cust.subItem(sup,64), this.kw5 := Scintilla.cust.subItem(sup,68)
+            this.kw2 := Scintilla.cust.subItem(sup,65), this.kw6 := Scintilla.cust.subItem(sup,69)
+            this.kw3 := Scintilla.cust.subItem(sup,66), this.kw7 := Scintilla.cust.subItem(sup,70)
+            this.kw4 := Scintilla.cust.subItem(sup,67), this.kw8 := Scintilla.cust.subItem(sup,71)
         }
         
         class subItem {
-            ID := 0, sup := ""
-            
-            __New(sup,ID) {
-                this.sup := sup, this.ID := ID
+            __New(sup,ID:=0) {
+                this.DefineProp("sup",{Value:sup})
+                this.DefineProp("ID",{Value:ID})
             }
-            
-            Fore {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Fore
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Fore := value
-                }
+            __Get(n,p) {
+                this.sup.Style.ID := this.ID
+                return this.sup.Style.%n%
             }
-            Back {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Back
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Back := value
-                }
-            }
-            Font {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Font
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Font := value
-                }
-            }
-            Size {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Size
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Size := value
-                }
-            }
-            Italic {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Italic
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Italic := value
-                }
-            }
-            Underline {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Underline
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Underline := value
-                }
-            }
-            Bold {
-                get {
-                    this.sup.Style.ID := this.ID
-                    return this.sup.Style.Bold
-                }
-                set {
-                    this.sup.Style.ID := this.ID
-                    this.sup.Style.Bold := value
-                }
+            __Set(n,p,v) {
+                this.sup.Style.ID := this.ID, this.sup.Style.%n% := v
             }
         }
     }
@@ -892,8 +795,7 @@ class Scintilla extends Gui.Custom {
     ; Scintilla Control Content methods and properties
     ; =========================================================================================
     
-    AppendText(pos:="", text:="") {     ; caret is moved, screen not scrolled
-        pos := (pos!="")?pos:this.CurPos
+    AppendText(pos, text:="") {     ; caret is moved, screen not scrolled
         return this._PutStr(0x8EA, pos, text) ; SCI_APPENDTEXT
     }
     Characters(start, end) { ; number of actual chars between "start" and "end" byte pos / see PosRelative() method
@@ -908,51 +810,39 @@ class Scintilla extends Gui.Custom {
             }
         }
     }
-    CodeUnits(start, end) {
-        return this._sms(0xA9B, start, end) ; SCI_COUNTCODEUNITS
-    }
-    Column(pos:="") {
-        pos := (pos!="")?pos:this.CurPos ; defaults to getting column at current caret pos
+    CodeUnits(start, end) => this._sms(0xA9B, start, end) ; SCI_COUNTCODEUNITS
+
+    Column(pos) {
         return this._sms(0x851, pos)     ; SCI_GETCOLUMN
     }
-    CurLine { ; returns BYTE pos at the beginning of current line
-        get => this.LineFromPos(this.CurPos)
-    }
+    CurLine => ; returns BYTE pos at the beginning of current line
+        this.LineFromPos(this.CurPos)
+        
     CurPos { ; returns current BYTE pos, not CHAR pos
         get => this._sms(0x7D8)         ; SCI_GETCURRENTPOS
         set => this._sms(0x7E9, value)  ; SCI_GOTOPOS (selects destroyed, cursor scrolled)
     }
-    DeleteRange(start, end) {
-        return this._sms(0xA55, start, end) ; SCI_DELETERANGE
-    }
-    DocLine(visible) {
-        return this._sms(0x8AD, visible) ; SCI_DOCLINEFROMVISIBLE
-    }
-    FindColumn(line, pos) {
-        return this._sms(0x998, line, pos)  ; SCI_FINDCOLUMN
-    }
-    FirstVisibleDocLine {
-        get => this.DocLine(this.FirstVisibleLine)
-    }
+    
+    DeleteRange(start, end) => this._sms(0xA55, start, end) ; SCI_DELETERANGE
+    
+    DocLine(visible) => this._sms(0x8AD, visible) ; SCI_DOCLINEFROMVISIBLE
+    
+    FindColumn(line, pos) => this._sms(0x998, line, pos)  ; SCI_FINDCOLUMN
+    
+    FirstVisibleDocLine => this.DocLine(this.FirstVisibleLine)
+    
     FirstVisibleLine {
         get => this._sms(0x868) ; SCI_GETFIRSTVISIBLELINE
         set => this._sms(0xA35, value) ; SCI_SETFIRSTVISIBLELINE
     }
-    GetChar(pos:="") {
-        pos := (pos!="")?pos:this.CurPos
+    GetChar(pos) {
         return (pos<this.Length) ? this.GetTextRange(pos, this.NextCharPos(pos)) : ""
-        
-        ; return this._sms(0x7D7, pos)    ; SCI_GETCHARAT
     }
     GetTextRange(start, end) {
-        tr := Scintilla.TextRange()
-        tr.cpMin := start
-        tr.cpMax := end
-        this._sms(0x872, 0, tr.ptr)     ; SCI_GETTEXTRANGE
+        this._sms(0x872, 0, (tr := Scintilla.TextRange(,start,end)).ptr) ; SCI_GETTEXTRANGE
         return StrGet(tr.buf, "UTF-8")
     }
-    GetStyle(pos:="") {
-        pos := (pos!="")?pos:this.CurPos
+    GetStyle(pos) {
         return this._sms(0x7DA, pos)    ; SCI_GETSTYLEAT
     }
     InsertText(pos:=-1, text:="") {             ; caret is moved, screen not scrolled
@@ -961,12 +851,10 @@ class Scintilla extends Gui.Custom {
     Length {                            ; document length (bytes)
         get => this._sms(0x7D6)         ; SCI_GETLENGTH
     }
-    LineEndPos(line:="") {              ; see .PosFromLine() to get the start of a line
-        line := (line!="")?line:this.CurLine
+    LineEndPos(line) {              ; see .PosFromLine() to get the start of a line
         return this._sms(0x858, line)   ; SCI_GETLINEENDPOSITION
     }
-    LineLength(line:="") {
-        line := (line!="")?line:this.CurLine
+    LineLength(line) {
         return this._sms(0x92E, line)   ; SCI_LINELENGTH
     }
     Lines {                             ; number of lines in document
@@ -978,28 +866,22 @@ class Scintilla extends Gui.Custom {
     LinesOnScreen {
         get => this._sms(0x942)         ; SCI_LINESONSCREEN
     }
-    LineText(line:="") {
-        line := (line!="")?line:this.CurLine
-        len := this._sms(0x869, line) + 2   ; SCI_GETLINE
-        buf := Buffer(len, 0)
+    
+    LineText(line) {
+        buf := Buffer(this.LineLength(line))
         this._sms(0x869, line, buf.ptr)     ; SCI_GETLINE
         return StrGet(buf, "UTF-8")
     }
     NextChar(pos, offset:=1) {
-        p1 := this.NextCharPos(pos, offset)
-        return p1?this.GetChar(p1):""
+        return (p1 := this.NextCharPos(pos, offset))?this.GetChar(p1):""
     }
     NextCharPos(pos, offset:=1) {
         return this._sms(0xA6E, pos, offset) ; SCI_POSITIONRELATIVE
     }
-    PointFromPos(pos:="") {
-        pos := (pos!="")?pos:this.CurPos
-        x := this._sms(0x874,,pos)      ; SCI_POINTXFROMPOSITION
-        y := this._sms(0x875,,pos)      ; SCI_POINTYFROMPOSITION
-        return {x:x, y:y}
+    PointFromPos(pos) {
+        return {x:this._sms(0x874,,pos), y:this._sms(0x875,,pos)} ; SCI_POINTXFROMPOSITION, SCI_POINTYFROMPOSITION
     }
-    PosFromLine(line:="") {             ; see .LineEndPos() to get end pos of line
-        line := (line!="")?line:this.CurLine
+    PosFromLine(line) {             ; see .LineEndPos() to get end pos of line
         return this._sms(0x877, line)   ; SCI_POSITIONFROMLINE
     }
     PosFromPoint(x, y) {
@@ -1012,10 +894,7 @@ class Scintilla extends Gui.Custom {
         return this._sms(0xA6E, pos, length) ; SCI_POSITIONRELATIVE
     }
     PrevChar(pos, offset:=-1) {
-        p1 := this.NextCharPos(pos, offset)
-        return p1?this.GetChar(p1):""
-        
-        ; return this.GetChar(this.PrevCharPos(pos))
+        return (p1 := this.NextCharPos(pos, offset))?this.GetChar(p1):""
     }
     PrevCharPos(pos, offset:=-1) {
         return this._sms(0xA6E, pos, offset) ; SCI_POSITIONRELATIVE
@@ -1425,8 +1304,7 @@ class Scintilla extends Gui.Custom {
         PolicyY(policy:=0, pixels:=0) {             ; 1 = SLOP, 4 = STRICT, 8 = EVEN, 16 = JUMPS
             return this._sms(0x963, policy, pixels) ; SCI_SETYCARETPOLICY
         }
-        SetPos(pos:="") {                           ; caret new pos is NOT scrolled into view
-            pos := (pos!="")?pos:this.ctl.CurPos    ; use current caret pos by default, and just disable selection
+        SetPos(pos) {                           ; caret new pos is NOT scrolled into view
             return this._sms(0x9FC, pos)            ; SCI_SETEMPTYSELECTION
         }
         Sticky {                            ; int 0, 1, 2 (default = 0 (off))
@@ -2430,153 +2308,57 @@ class Scintilla extends Gui.Custom {
     
     class CharRange {
         __New(ptr := 0) {
-            If !ptr {
-                this.struct := Buffer(8,0)
-                this.ptr := this.struct.ptr
-            } Else
-                this.ptr := ptr
+            this.DefineProp("struct",{Value:(!ptr) ? Buffer(8,0) : {ptr:ptr}})
+            this.DefineProp("o",{Value:{cpMin:{o:0,t:"UInt"},cpMax:{o:4,t:"UInt"}}})
+            this.DefineProp("Ptr",{Get:(o)=>this.struct.ptr})
         }
-        cpMin {
-            get => NumGet(this.struct, 0, "UInt")
-            set => NumPut("UInt", value, this.struct)
-        }
-        cpMax {
-            get => NumGet(this.struct, 4, "UInt")
-            set => NumPut("UInt", value, this.struct, 4)
-        }
-        ptr {
-            get => this.struct.ptr
-        }
+        __Get(n,p) => NumGet(this.ptr,this.o.%n%.o,this.o.%n%.t)
+        __Set(n,p,v) => NumPut(this.o.%n%.t,v,this.ptr,this.o.%n%.o)
     }
     
     class TextRange {
-        _ptr := 0
-        __New(ptr:=0) {
-            If !ptr {
-                this.struct := Buffer((A_PtrSize=4)?12:16, 0)
-            } Else
-                this._ptr := ptr
+        __New(ptr:=0,cpMin:=0,cpMax:=0) {
+            this.DefineProp("struct",{Value:((!ptr) ? Buffer((A_PtrSize=4)?12:16, 0) : {ptr:ptr})})
+            this.DefineProp("Ptr",{Get:(o)=>this.struct.ptr})
+            this.DefineProp("buf",{Value:""})
+            this.DefineProp("o",{Value:{cpMin:{o:0,t:"UInt"}, cpMax:{o:4,t:"UInt"}, lpText:{o:8,t:"UPtr"}}})
+            
+            this.cpMin := cpMin, this.cpMax := cpMax
+            this.buf := Buffer(Abs(this.cpMax - this.cpMin) + 2, 0)
+            this.lpText := this.buf.ptr
         }
-        _SetBuffer() {
-            If (this.cpMax) {
-                If (this.cpMax < this.cpMin)
-                    throw Error("Invalid range.",,"`r`ncpMin: " this.cpMin "`r`ncpMax: " this.cpMax)
-                
-                this.buf := Buffer(this.cpMax - this.cpMin + 2, 0)
-                this.lpText := this.buf.ptr
-            }
-        }
-        cpMin {
-            get => NumGet(this.struct, 0, "UInt")
-            set {
-                NumPut("UInt", value, this.struct)
-                this._SetBuffer()
-            }
-        }
-        cpMax {
-            get => NumGet(this.struct, 4, "UInt")
-            set {
-                NumPut("UInt", value, this.struct, 4)
-                this._SetBuffer()
-            }
-        }
-        lpText {
-            get => NumGet(this.struct, 8, "UPtr")
-            set => NumPut("UPtr", value, this.struct, 8)
-        }
-        ptr {
-            get => (!this._ptr) ? this.struct.ptr : this._ptr
-        }
+        __Get(n,p) => NumGet(this.ptr,this.o.%n%.o,this.o.%n%.t)
+        __Set(n,p,v) => NumPut(this.o.%n%.t,v,this.ptr,this.o.%n%.o)
     }
     
     class SCNotification { ; SCNotification
-        __New(ptr := 0) {
-            this.ptr := ptr
-        }
-        hwnd {
-            get => NumGet(this.ptr, 0, "UPtr")
-        }
-        id {
-            get => NumGet(this.ptr, Scintilla.scn_id, "UPtr")
-        }
-        wmmsg {
-            get => NumGet(this.ptr, Scintilla.scn_wmmsg, "UInt")
-        }
-        pos {
-            get => NumGet(this.ptr, Scintilla.scn_pos, "Int")
-        }
-        ch {
-            get => NumGet(this.ptr, Scintilla.scn_ch, "Int")
-        }
-        mod {
-            get => NumGet(this.ptr, Scintilla.scn_mod, "Int")
-        }
-        modType {
-            get => NumGet(this.ptr, Scintilla.scn_modType, "Int")
-        }
-        text {
-            get {
-                ptr := NumGet(this.ptr, Scintilla.scn_text, "UPtr") ; Specifying length helps as described below:
-                return (ptr) ? StrGet(ptr, this.length, "UTF-8") : ""
-                    ; return StrGet(ptr, this.length, "UTF-8") ; For some reason the following event adds "r" at the end of paste:
-                ; Else                            ; SCN_MODIFIED modType: InsertText StartAction User / modType: 0x2011 / asdfr
-                    ; return ""                   ; ?? only "asdf" was pasted...
-            }
-        }
-        textPtr {
-            get => NumGet(this.ptr, Scintilla.scn_text, "UPtr")
-        }
-        length {
-            get => NumGet(this.ptr, Scintilla.scn_length, "Int")
-        }
-        linesAdded {
-            get => NumGet(this.ptr, Scintilla.scn_linesAdded, "Int")
-        }
-        message {
-            get => NumGet(this.ptr, Scintilla.scn_message, "Int")
-        }
-        wParam {
-            get => NumGet(this.ptr, Scintilla.scn_wParam, "UPtr")
-        }
-        lParam {
-            get => NumGet(this.ptr, Scintilla.scn_lParam, "Ptr")
-        }
-        line {
-            get => NumGet(this.ptr, Scintilla.scn_line, "Int")
-        }
-        foldLevelNow {
-            get => NumGet(this.ptr, Scintilla.scn_foldLevelNow, "Int")
-        }
-        foldLevelPrev {
-            get => NumGet(this.ptr, Scintilla.scn_foldLevelPrev, "Int")
-        }
-        margin {
-            get => NumGet(this.ptr, Scintilla.scn_margin, "Int")
-        }
-        listType {
-            get => NumGet(this.ptr, Scintilla.scn_listType, "Int")
-        }
-        x {
-            get => NumGet(this.ptr, Scintilla.scn_x, "Int")
-        }
-        y {
-            get => NumGet(this.ptr, Scintilla.scn_y, "Int")
-        }
-        token {
-            get => NumGet(this.ptr, Scintilla.scn_token, "Int")
-        }
-        annotationLinesAdded {
-            get => NumGet(this.ptr, Scintilla.scn_annotationLinesAdded, "Int")
-        }
-        updated {
-            get => NumGet(this.ptr, Scintilla.scn_updated, "Int")
-        }
-        listCompletionMethod {
-            get => NumGet(this.ptr, Scintilla.scn_listCompletionMethod, "Int")
-        }
-        characterSource {
-            get => NumGet(this.ptr, Scintilla.scn_characterSource, "Int")
-        }
+        __New(ptr := 0) => this.ptr := ptr
+        hwnd => NumGet(this.ptr, 0, "UPtr")
+        id => NumGet(this.ptr, Scintilla.scn_id, "UPtr")
+        wmmsg => NumGet(this.ptr, Scintilla.scn_wmmsg, "UInt")
+        pos => NumGet(this.ptr, Scintilla.scn_pos, "Int")
+        ch => NumGet(this.ptr, Scintilla.scn_ch, "Int")
+        mod => NumGet(this.ptr, Scintilla.scn_mod, "Int")
+        modType => NumGet(this.ptr, Scintilla.scn_modType, "Int")
+        text => (ptr := NumGet(this.ptr, Scintilla.scn_text, "UPtr")) ? StrGet(ptr, this.length, "UTF-8") : ""
+        textPtr => NumGet(this.ptr, Scintilla.scn_text, "UPtr")
+        length => NumGet(this.ptr, Scintilla.scn_length, "Int")
+        linesAdded => NumGet(this.ptr, Scintilla.scn_linesAdded, "Int")
+        message => NumGet(this.ptr, Scintilla.scn_message, "Int")
+        wParam => NumGet(this.ptr, Scintilla.scn_wParam, "UPtr")
+        lParam => NumGet(this.ptr, Scintilla.scn_lParam, "Ptr")
+        line => NumGet(this.ptr, Scintilla.scn_line, "Int")
+        foldLevelNow => NumGet(this.ptr, Scintilla.scn_foldLevelNow, "Int")
+        foldLevelPrev => NumGet(this.ptr, Scintilla.scn_foldLevelPrev, "Int")
+        margin => NumGet(this.ptr, Scintilla.scn_margin, "Int")
+        listType => NumGet(this.ptr, Scintilla.scn_listType, "Int")
+        x => NumGet(this.ptr, Scintilla.scn_x, "Int")
+        y => NumGet(this.ptr, Scintilla.scn_y, "Int")
+        token => NumGet(this.ptr, Scintilla.scn_token, "Int")
+        annotationLinesAdded => NumGet(this.ptr, Scintilla.scn_annotationLinesAdded, "Int")
+        updated => NumGet(this.ptr, Scintilla.scn_updated, "Int")
+        listCompletionMethod => NumGet(this.ptr, Scintilla.scn_listCompletionMethod, "Int")
+        characterSource => NumGet(this.ptr, Scintilla.scn_characterSource, "Int")
     }
 }
 
