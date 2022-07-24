@@ -795,9 +795,8 @@ class Scintilla extends Gui.Custom {
     ; Scintilla Control Content methods and properties
     ; =========================================================================================
     
-    AppendText(pos, text:="") {     ; caret is moved, screen not scrolled
-        return this._PutStr(0x8EA, pos, text) ; SCI_APPENDTEXT
-    }
+    AppendText(pos, text:="") => this._PutStr(0x8EA, pos, text) ; SCI_APPENDTEXT caret is moved, screen not scrolled
+    
     Characters(start, end) { ; number of actual chars between "start" and "end" byte pos / see PosRelative() method
         return this._sms(0xA49, start, end) ; SCI_COUNTCHARACTERS
     }
@@ -812,11 +811,9 @@ class Scintilla extends Gui.Custom {
     }
     CodeUnits(start, end) => this._sms(0xA9B, start, end) ; SCI_COUNTCODEUNITS
 
-    Column(pos) {
-        return this._sms(0x851, pos)     ; SCI_GETCOLUMN
-    }
-    CurLine => ; returns BYTE pos at the beginning of current line
-        this.LineFromPos(this.CurPos)
+    Column(pos) => this._sms(0x851, pos)     ; SCI_GETCOLUMN
+    
+    CurLine => this.LineFromPos(this.CurPos) ; returns BYTE pos
         
     CurPos { ; returns current BYTE pos, not CHAR pos
         get => this._sms(0x7D8)         ; SCI_GETCURRENTPOS
@@ -842,63 +839,45 @@ class Scintilla extends Gui.Custom {
         this._sms(0x872, 0, (tr := Scintilla.TextRange(,start,end)).ptr) ; SCI_GETTEXTRANGE
         return StrGet(tr.buf, "UTF-8")
     }
-    GetStyle(pos) {
-        return this._sms(0x7DA, pos)    ; SCI_GETSTYLEAT
-    }
-    InsertText(pos:=-1, text:="") {             ; caret is moved, screen not scrolled
-        return this._PutStr(0x7D3, pos, text)   ; SCI_INSERTTEXT
-    }
-    Length {                            ; document length (bytes)
-        get => this._sms(0x7D6)         ; SCI_GETLENGTH
-    }
-    LineEndPos(line) {              ; see .PosFromLine() to get the start of a line
-        return this._sms(0x858, line)   ; SCI_GETLINEENDPOSITION
-    }
-    LineLength(line) {
-        return this._sms(0x92E, line)   ; SCI_LINELENGTH
-    }
-    Lines {                             ; number of lines in document
-        get => this._sms(0x86A)         ; SCI_GETLINECOUNT
-    }
-    LineFromPos(pos) {
-        return this._sms(0x876, pos)    ; SCI_LINEFROMPOSITION
-    }
-    LinesOnScreen {
-        get => this._sms(0x942)         ; SCI_LINESONSCREEN
-    }
+    GetStyle(pos) => this._sms(0x7DA, pos)    ; SCI_GETSTYLEAT
+    
+    InsertText(pos:=-1, text:="") => this._PutStr(0x7D3, pos, text) ; SCI_INSERTTEXT caret is moved, screen not scrolled
+    
+    Length => this._sms(0x7D6) ; SCI_GETLENGTH document length (bytes)
+    
+    LineEndPos(line) => this._sms(0x858, line) ; SCI_GETLINEENDPOSITION see .PosFromLine() to get the start of a line
+    
+    LineLength(line) => this._sms(0x92E, line)   ; SCI_LINELENGTH
+    
+    Lines => this._sms(0x86A) ; SCI_GETLINECOUNT number of lines in document
+    
+    LineFromPos(pos) => this._sms(0x876, pos)    ; SCI_LINEFROMPOSITION
+    
+    LinesOnScreen => this._sms(0x942)         ; SCI_LINESONSCREEN
     
     LineText(line) {
         buf := Buffer(this.LineLength(line))
         this._sms(0x869, line, buf.ptr)     ; SCI_GETLINE
         return StrGet(buf, "UTF-8")
     }
-    NextChar(pos, offset:=1) {
-        return (p1 := this.NextCharPos(pos, offset))?this.GetChar(p1):""
-    }
-    NextCharPos(pos, offset:=1) {
-        return this._sms(0xA6E, pos, offset) ; SCI_POSITIONRELATIVE
-    }
-    PointFromPos(pos) {
-        return {x:this._sms(0x874,,pos), y:this._sms(0x875,,pos)} ; SCI_POINTXFROMPOSITION, SCI_POINTYFROMPOSITION
-    }
-    PosFromLine(line) {             ; see .LineEndPos() to get end pos of line
-        return this._sms(0x877, line)   ; SCI_POSITIONFROMLINE
-    }
-    PosFromPoint(x, y) {
-        return this._sms(0x7E7, x, y)   ; SCI_POSITIONFROMPOINTCLOSE
-    }
-    PosFromPointAny(x, y) {
-        return this._sms(0x7E6, x, y)   ; SCI_POSITIONFROMPOINT
-    }
-    PosRelative(pos, length) { ; returns byte pos in doc / length can be negative / See Characters() method
-        return this._sms(0xA6E, pos, length) ; SCI_POSITIONRELATIVE
-    }
-    PrevChar(pos, offset:=-1) {
-        return (p1 := this.NextCharPos(pos, offset))?this.GetChar(p1):""
-    }
-    PrevCharPos(pos, offset:=-1) {
-        return this._sms(0xA6E, pos, offset) ; SCI_POSITIONRELATIVE
-    }
+    NextChar(pos, offset:=1) => (p1 := this.NextCharPos(pos, offset))?this.GetChar(p1):""
+    
+    NextCharPos(pos, offset:=1) => this._sms(0xA6E, pos, offset) ; SCI_POSITIONRELATIVE
+    
+    PointFromPos(pos) => {x:this._sms(0x874,,pos), y:this._sms(0x875,,pos)} ; SCI_POINTXFROMPOSITION, SCI_POINTYFROMPOSITION
+    
+    PosFromLine(line) => this._sms(0x877, line)   ; SCI_POSITIONFROMLINE
+    
+    PosFromPoint(x, y) => this._sms(0x7E7, x, y)   ; SCI_POSITIONFROMPOINTCLOSE
+    
+    PosFromPointAny(x, y) => this._sms(0x7E6, x, y)   ; SCI_POSITIONFROMPOINT
+    
+    PosRelative(pos, length) => this._sms(0xA6E, pos, length) ; SCI_POSITIONRELATIVE returns byte pos in doc / length can be negative / See Characters() method
+    
+    PrevChar(pos, offset:=-1) => (p1 := this.NextCharPos(pos, offset))?this.GetChar(p1):""
+    
+    PrevCharPos(pos, offset:=-1) => this._sms(0xA6E, pos, offset) ; SCI_POSITIONRELATIVE
+    
     ReadOnly {                          ; boolean
         get => this._sms(0x85C)         ; SCI_GETREADONLY
         set => this._sms(0x87B, value)  ; SCI_SETREADONLY
@@ -920,108 +899,79 @@ class Scintilla extends Gui.Custom {
     ; Scintilla Control Actions
     ; =========================================================================================
     
-    Clear() {
-        return this._sms(0x884) ; SCI_CLEAR
-    }
-    ClearAll() {
-        return this._sms(0x7D4)         ; SCI_CLEARALL
-    }
-    Copy() {
-        return this._sms(0x882) ; SCI_COPY
-    }
-    CopyLine() {                ; Same as Copy() when selection is active.
-        return this._sms(0x9D7) ; SCI_COPYALLOWLINE
-    }
-    CopyRange(start, end) {
-        return this._sms(0x973, start, end) ; SCI_COPYRANGE
-    }
-    Cut() {
-        return this._sms(0x881) ; SCI_CUT
-    }
-    Focus() {                           ; GrabFocus(0x960) ... or ... SetFocus(0x94C, bool)
-        this._sms(0x960)                ; SCI_GRABFOCUS
-    }
-    LinesJoin() {                       ; target is assumed to be user selection
-        return this._sms(0x8F0)         ; SCI_LINESJOIN
-    }
-    LinesSplit(pixels) {                ; target is assumed to be user selection
-        return this._sms(0x8F1, pixels) ; SCI_LINESSPLIT
-    }
-    Paste() {
-        return this._sms(0x883) ; SCI_PASTE
-    }
-    SelectAll() {
-        return this._sms(0x7DD)         ; SCI_SELECTALL
-    }
-    VisibleFromDocLine(_in) {
-        return this._sms(0x8AC,_in)     ; SCI_VISIBLEFROMDOCLINE
-    }
+    Clear() => this._sms(0x884) ; SCI_CLEAR
+    
+    ClearAll() => this._sms(0x7D4)         ; SCI_CLEARALL
+    
+    Copy() => this._sms(0x882) ; SCI_COPY
+    
+    CopyLine() => this._sms(0x9D7) ; SCI_COPYALLOWLINE Same as Copy() when selection is active.
+    
+    CopyRange(start, end) => this._sms(0x973, start, end) ; SCI_COPYRANGE
+    
+    Cut() => this._sms(0x881) ; SCI_CUT
+    
+    Focus() => this._sms(0x960)                ; SCI_GRABFOCUS
+    
+    LinesJoin() => this._sms(0x8F0)         ; SCI_LINESJOIN target is assumed to be user selection
+    
+    LinesSplit(pixels) => this._sms(0x8F1, pixels) ; SCI_LINESSPLIT target is assumed to be user selection
+    
+    Paste() => this._sms(0x883) ; SCI_PASTE
+    
+    SelectAll() => this._sms(0x7DD)         ; SCI_SELECTALL
+    
+    VisibleFromDocLine(_in) => this._sms(0x8AC,_in)     ; SCI_VISIBLEFROMDOCLINE
+    
     Zoom {                              ; int points (some measure of "zoom factor" for ZoomIN/OUT commands, default = 0
         get => this._sms(0x946)         ; SCI_GETZOOM
         set => this._sms(0x945, value)  ; SCI_SETZOOM
     }
-    ZoomIN() {
-        return this._sms(0x91D)         ; SCI_ZOOMIN
-    }
-    ZoomOUT() {
-        return this._sms(0x91E)         ; SCI_ZOOMOUT
-    }
+    ZoomIN() => this._sms(0x91D)         ; SCI_ZOOMIN
+    
+    ZoomOUT() => this._sms(0x91E)         ; SCI_ZOOMOUT
+    
     
     ; =========================================================================================
     ; Scintilla Control Undo/Redo
     ; =========================================================================================
     
-    AddUndo(token, flags:=1) {                  ; token is sent in SCN_MODIFIED notification
-        return this._sms(0xA00, token, flags)   ; SCI_ADDUNDOACTION
-    }                                           ; flags: 1=COALESCE, 0=NONE
+    AddUndo(token, flags:=1) =>         ; flags: 1=COALESCE, 0=NONE
+        this._sms(0xA00, token, flags)  ; SCI_ADDUNDOACTION token is sent in SCN_MODIFIED notification
     
-    CanUndo {
-        get => this._sms(0x87E) ; SCI_CANUNDO
-    }
-    CanRedo {
-        get => this._sms(0x7E0) ; SCI_CANREDO
-    }
+    CanUndo => this._sms(0x87E) ; SCI_CANUNDO
     
-    BeginUndo() {
-        return this._sms(0x81E) ; SCI_BEGINUNDOACTION
-    }
-    EndUndo() {
-        return this._sms(0x81F) ; SCI_ENDUNDOACTION
-    }
-    Redo() {
-        return this._sms(0x7DB) ; SCI_REDO
-    }
-    Undo() {
-        return this._sms(0x880) ; SCI_UNDO
-    }
+    CanRedo => this._sms(0x7E0) ; SCI_CANREDO
+    
+    BeginUndo() => this._sms(0x81E) ; SCI_BEGINUNDOACTION
+    
+    EndUndo() => this._sms(0x81F) ; SCI_ENDUNDOACTION
+    
+    Redo() => this._sms(0x7DB) ; SCI_REDO
+    
+    Undo() => this._sms(0x880) ; SCI_UNDO
+    
     UndoActive {                        ; bool - enable/disable undo collection
         get => this._sms(0x7E3)         ; SCI_GETUNDOCOLLECTION
         set => this._sms(0x7DC, value)  ; SCI_SETUNDOCOLLECTION
     }
-    UndoEmpty() {
-        return this._sms(0x87F) ; SCI_EMPTYUNDOBUFFER
-    }
+    UndoEmpty() => this._sms(0x87F) ; SCI_EMPTYUNDOBUFFER
     
     ; =========================================================================================
     ; Scintilla Control Status
     ; =========================================================================================
     
-    CanPaste {
-        get => this._sms(0x87D) ; SCI_CANPASTE
-    }
-    Focused {                           ; boolean
-        get => this._sms(0x94D)         ; SCI_GETFOCUS
-    }
-    Modified {
-        get => this._sms(0x86F)         ; SCI_GETMODIFY
-    }
+    CanPaste => this._sms(0x87D) ; SCI_CANPASTE
+    
+    Focused => this._sms(0x94D)         ; SCI_GETFOCUS boolean
+    
+    Modified => this._sms(0x86F)         ; SCI_GETMODIFY
+    
     ; Status {                            ; 0=NONE, 1=GenericFail, 2=MemoryExhausted, 1001=InvalidRegex
         ; get => this._sms(0x94F)         ; SCI_GETSTATUS ; Generally meaning the "error status"
         ; set => this._sms(0x94E, value)  ; SCI_SETSTATUS ; manually set status = 0 to clear
     ; }
-    Status {
-        get => this._StatusD
-    }
+    Status => this._StatusD
     
     ; =========================================================================================
     ; Scintilla Control Settings
@@ -1143,29 +1093,22 @@ class Scintilla extends Gui.Custom {
     ; Scintilla internals, suggested not to use directly, unless you want advanced contlrol
     ; =========================================================================================
     
-    DirectFunc { ; used internally
-        get => Scintilla.DirectFunc
-    }
-    DirectPtr { ; used internally
-        get => this._DirectPtr
-    }
-    DirectStatusFunc { ; used internally
-        get => Scintilla.DirectStatusFunc
-    }
+    DirectFunc => Scintilla.DirectFunc ; used internally
+    
+    DirectPtr => this._DirectPtr ; used internally
+    
+    DirectStatusFunc => Scintilla.DirectStatusFunc ; used internally
     
     ; =========================================================================================
     ; Scintilla Control manual direct access
     ; =========================================================================================
     
-    CharacterPointer {
-        get => this._sms(0x9D8)         ; SCI_GETCHARACTERPOINTER
-    }
-    GapPosition {
-        get => this._sms(0xA54)         ; SCI_GETGAPPOSITION
-    }
-    RangePointer(start, length) {
-        return this._sms(0xA53, start, length) ; SCI_GETRANGEPOINTER
-    }
+    CharacterPointer => this._sms(0x9D8)         ; SCI_GETCHARACTERPOINTER
+    
+    GapPosition => this._sms(0xA54)         ; SCI_GETGAPPOSITION
+    
+    RangePointer(start, length) => this._sms(0xA53, start, length) ; SCI_GETRANGEPOINTER
+    
     UseDirect {
         get => this._UseDirect
         set {
